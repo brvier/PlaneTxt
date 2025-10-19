@@ -151,6 +151,17 @@ class FileProvider extends ChangeNotifier {
 
     _noteFiles.clear();
     await _loadNotesRecursively(_notesDirectory!);
+    
+    // Sort notes by modification date, most recent first
+    _noteFiles.sort((a, b) => b.lastModified.compareTo(a.lastModified));
+    print('📁 FileProvider: Loaded ${_noteFiles.length} notes, sorted by modification date');
+    
+    // Debug: Print first few notes with their modification dates
+    for (int i = 0; i < _noteFiles.length && i < 3; i++) {
+      final note = _noteFiles[i];
+      print('  ${i + 1}. ${note.displayName} - ${note.lastModified}');
+    }
+    
     notifyListeners();
   }
 
@@ -163,11 +174,13 @@ class FileProvider extends ChangeNotifier {
       } else if (file is File && file.path.endsWith('.md')) {
         final content = await file.readAsString();
         final relativePath = file.path.replaceFirst('${_notesDirectory!.path}/', '');
+        final stat = await file.stat();
         
         _noteFiles.add(NoteFile(
           path: file.path,
           relativePath: relativePath,
           content: content,
+          lastModified: stat.modified,
         ));
       }
     }
@@ -205,6 +218,9 @@ class FileProvider extends ChangeNotifier {
     final file = File('${_notesDirectory!.path}/$relativePath');
     await file.parent.create(recursive: true);
     await file.writeAsString(content);
+    
+    // Get the modification date after writing
+    final stat = await file.stat();
 
     // Update or add to note files list
     final existingIndex = _noteFiles.indexWhere((n) => n.relativePath == relativePath);
@@ -213,14 +229,20 @@ class FileProvider extends ChangeNotifier {
         path: file.path,
         relativePath: relativePath,
         content: content,
+        lastModified: stat.modified,
       );
     } else {
       _noteFiles.add(NoteFile(
         path: file.path,
         relativePath: relativePath,
         content: content,
+        lastModified: stat.modified,
       ));
     }
+    
+    // Re-sort by modification date after adding/updating
+    _noteFiles.sort((a, b) => b.lastModified.compareTo(a.lastModified));
+    print('📁 FileProvider: Note saved and sorted by modification date');
 
     notifyListeners();
   }
@@ -252,11 +274,18 @@ class FileProvider extends ChangeNotifier {
       // Update the note in the list
       final noteIndex = _noteFiles.indexWhere((n) => n.path == note.path);
       if (noteIndex != -1) {
+        // Get the modification date of the renamed file
+        final stat = await existingFile.stat();
         _noteFiles[noteIndex] = NoteFile(
           path: existingFile.path,
           relativePath: newRelativePath,
           content: note.content,
+          lastModified: stat.modified,
         );
+        
+        // Re-sort by modification date after renaming
+        _noteFiles.sort((a, b) => b.lastModified.compareTo(a.lastModified));
+        print('📁 FileProvider: Note renamed and sorted by modification date');
         notifyListeners();
         return true;
       }

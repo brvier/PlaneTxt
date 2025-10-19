@@ -18,6 +18,10 @@ class FileProvider extends ChangeNotifier {
   List<NoteFile> _noteFiles = [];
   String _selectedDate = '';
 
+  FileProvider() {
+    print('🚀 FileProvider: Constructor called');
+  }
+
   Directory? get documentsDirectory => _documentsDirectory;
   Directory? get orgDirectory => _orgDirectory;
   Directory? get dailiesDirectory => _dailiesDirectory;
@@ -29,30 +33,93 @@ class FileProvider extends ChangeNotifier {
   String get selectedDate => _selectedDate;
 
   Future<void> initializeDirectories(BuildContext context) async {
+    print('📁 FileProvider: Initializing directories...');
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    print('📁 FileProvider: ThemeProvider custom storage path: ${themeProvider.customStoragePath}');
     
-    // Use custom storage path if set, otherwise use default documents directory
-    if (themeProvider.customStoragePath != null) {
-      // Use the custom path directly as the root directory
-      _orgDirectory = Directory(themeProvider.customStoragePath!);
-    } else {
+    try {
+      // Use custom storage path if set, otherwise use default documents directory
+      if (themeProvider.customStoragePath != null) {
+        print('📁 FileProvider: Using custom storage path: ${themeProvider.customStoragePath}');
+        // Validate custom path exists and is writable
+        final customDir = Directory(themeProvider.customStoragePath!);
+        if (await customDir.exists()) {
+          print('📁 FileProvider: Custom directory exists, testing write permissions...');
+          // Test if we can write to the directory
+          final testFile = File('${customDir.path}/.test_write');
+          try {
+            await testFile.writeAsString('test');
+            await testFile.delete();
+            print('📁 FileProvider: Write test successful, using custom directory');
+            _orgDirectory = customDir;
+          } catch (e) {
+            print('❌ FileProvider: Custom storage path is not writable: $e');
+            // Fall back to default directory
+            _documentsDirectory = await getApplicationDocumentsDirectory();
+            _orgDirectory = Directory('${_documentsDirectory!.path}/Org');
+            print('📁 FileProvider: Falling back to default directory: ${_orgDirectory!.path}');
+          }
+        } else {
+          print('❌ FileProvider: Custom storage path does not exist: ${themeProvider.customStoragePath}');
+          // Fall back to default directory
+          _documentsDirectory = await getApplicationDocumentsDirectory();
+          _orgDirectory = Directory('${_documentsDirectory!.path}/Org');
+          print('📁 FileProvider: Falling back to default directory: ${_orgDirectory!.path}');
+        }
+      } else {
+        print('📁 FileProvider: No custom storage path set, using default documents directory');
+        _documentsDirectory = await getApplicationDocumentsDirectory();
+        _orgDirectory = Directory('${_documentsDirectory!.path}/Org');
+        print('📁 FileProvider: Using default directory: ${_orgDirectory!.path}');
+      }
+      
+      _dailiesDirectory = Directory('${_orgDirectory!.path}/dailies');
+      _archivesDirectory = Directory('${_orgDirectory!.path}/archives');
+      _notesDirectory = Directory('${_orgDirectory!.path}/notes');
+
+      print('📁 FileProvider: Setting up subdirectories:');
+      print('  - Org: ${_orgDirectory!.path}');
+      print('  - Dailies: ${_dailiesDirectory!.path}');
+      print('  - Archives: ${_archivesDirectory!.path}');
+      print('  - Notes: ${_notesDirectory!.path}');
+
+      // Create directories if they don't exist
+      await _orgDirectory!.create(recursive: true);
+      await _dailiesDirectory!.create(recursive: true);
+      await _archivesDirectory!.create(recursive: true);
+      await _notesDirectory!.create(recursive: true);
+      print('📁 FileProvider: All directories created successfully');
+
+      await loadDailyFiles();
+      await loadNoteFiles();
+      print('📁 FileProvider: Directory initialization completed successfully');
+      notifyListeners();
+    } catch (e) {
+      print('❌ FileProvider: Error initializing directories: $e');
+      // Fall back to default directory on any error
+      print('📁 FileProvider: Error occurred, falling back to default directories');
       _documentsDirectory = await getApplicationDocumentsDirectory();
       _orgDirectory = Directory('${_documentsDirectory!.path}/Org');
+      _dailiesDirectory = Directory('${_orgDirectory!.path}/dailies');
+      _archivesDirectory = Directory('${_orgDirectory!.path}/archives');
+      _notesDirectory = Directory('${_orgDirectory!.path}/notes');
+      
+      print('📁 FileProvider: Fallback directories:');
+      print('  - Org: ${_orgDirectory!.path}');
+      print('  - Dailies: ${_dailiesDirectory!.path}');
+      print('  - Archives: ${_archivesDirectory!.path}');
+      print('  - Notes: ${_notesDirectory!.path}');
+      
+      await _orgDirectory!.create(recursive: true);
+      await _dailiesDirectory!.create(recursive: true);
+      await _archivesDirectory!.create(recursive: true);
+      await _notesDirectory!.create(recursive: true);
+      
+      await loadDailyFiles();
+      await loadNoteFiles();
+      print('📁 FileProvider: Fallback initialization completed');
+      notifyListeners();
     }
-    
-    _dailiesDirectory = Directory('${_orgDirectory!.path}/dailies');
-    _archivesDirectory = Directory('${_orgDirectory!.path}/archives');
-    _notesDirectory = Directory('${_orgDirectory!.path}/notes');
-
-    // Create directories if they don't exist
-    await _orgDirectory!.create(recursive: true);
-    await _dailiesDirectory!.create(recursive: true);
-    await _archivesDirectory!.create(recursive: true);
-    await _notesDirectory!.create(recursive: true);
-
-    await loadDailyFiles();
-    await loadNoteFiles();
-    notifyListeners();
   }
 
   Future<void> loadDailyFiles() async {
@@ -216,6 +283,12 @@ class FileProvider extends ChangeNotifier {
   String getTodayDate() {
     final now = DateTime.now();
     return '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+  }
+
+  String getCurrentStoragePath() {
+    final path = _orgDirectory?.path ?? 'Not initialized';
+    print('📁 FileProvider: getCurrentStoragePath() called, returning: $path');
+    return path;
   }
 
   bool hasUndoneTodos(String date) {

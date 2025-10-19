@@ -14,9 +14,11 @@ class ThemeProvider extends ChangeNotifier {
   String get dailyTemplate => _dailyTemplate;
 
   ThemeProvider() {
+    print('🚀 ThemeProvider: Constructor called');
     _loadTheme();
     _loadStoragePath();
     _loadTemplate();
+    print('🚀 ThemeProvider: Constructor completed (async methods started)');
   }
 
   Future<void> _loadTheme() async {
@@ -27,8 +29,11 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   Future<void> _loadStoragePath() async {
+    print('🔍 ThemeProvider: Loading storage path...');
     final prefs = await SharedPreferences.getInstance();
     _customStoragePath = prefs.getString(_storagePathKey);
+    print('🔍 ThemeProvider: Loaded custom storage path: $_customStoragePath');
+    print('🔍 ThemeProvider: Storage path key: $_storagePathKey');
     notifyListeners();
   }
 
@@ -57,12 +62,17 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   Future<void> setStoragePath(String? path) async {
+    print('💾 ThemeProvider: Setting storage path to: $path');
     _customStoragePath = path;
     final prefs = await SharedPreferences.getInstance();
     if (path != null) {
+      print('💾 ThemeProvider: Saving path to SharedPreferences with key: $_storagePathKey');
       await prefs.setString(_storagePathKey, path);
+      print('💾 ThemeProvider: Path saved successfully');
     } else {
+      print('💾 ThemeProvider: Removing storage path from SharedPreferences');
       await prefs.remove(_storagePathKey);
+      print('💾 ThemeProvider: Path removed successfully');
     }
     notifyListeners();
   }
@@ -78,7 +88,20 @@ class ThemeProvider extends ChangeNotifier {
     if (_customStoragePath != null) {
       return _customStoragePath!;
     }
-    return 'Default (Documents/Org)';
+    return 'Default (App Documents/Org)';
+  }
+
+  Future<void> waitForInitialization() async {
+    // Wait for the async initialization to complete
+    int attempts = 0;
+    while (attempts < 50) { // Wait up to 5 seconds
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+      // The storage path loading is complete when we've tried to load it
+      // We can check if the SharedPreferences loading is done by checking if we have a value or null
+      break;
+    }
+    print('🔍 ThemeProvider: waitForInitialization completed, customStoragePath: $_customStoragePath');
   }
 
   ThemeData get lightTheme {

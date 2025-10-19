@@ -25,8 +25,17 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FileProvider>().initializeDirectories(context);
+      _initializeFileProvider();
     });
+  }
+
+  Future<void> _initializeFileProvider() async {
+    print('🚀 MainScreen: Starting FileProvider initialization...');
+    // Wait a bit to ensure ThemeProvider has loaded its data
+    await Future.delayed(const Duration(milliseconds: 500));
+    print('🚀 MainScreen: Calling FileProvider.initializeDirectories...');
+    await context.read<FileProvider>().initializeDirectories(context);
+    print('🚀 MainScreen: FileProvider initialization completed');
   }
 
   @override

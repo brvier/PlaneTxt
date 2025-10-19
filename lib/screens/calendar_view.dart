@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -5,7 +6,7 @@ import '../providers/file_provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/daily_file.dart';
 import '../models/calendar_event.dart';
-import '../widgets/daily_editor.dart';
+import '../widgets/daily_editor_fullscreen.dart';
 import '../widgets/calendar_day_widget.dart';
 
 class CalendarView extends StatefulWidget {
@@ -18,8 +19,6 @@ class CalendarView extends StatefulWidget {
 class _CalendarViewState extends State<CalendarView> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  bool _isEditing = false;
-  final GlobalKey<DailyEditorState> _editorKey = GlobalKey<DailyEditorState>();
 
   @override
   void initState() {
@@ -33,68 +32,85 @@ class _CalendarViewState extends State<CalendarView> {
       builder: (context, fileProvider, child) {
         return Column(
           children: [
-            // Calendar
+            // Calendar - Uses its intrinsic size
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(
+                  16, 16, 16, 0), // Remove bottom padding
               child: TableCalendar<DailyFile>(
-                firstDay: DateTime(2020),
-                lastDay: DateTime(2030),
-                focusedDay: _focusedDay,
-                selectedDayPredicate: (day) {
-                  return isSameDay(_selectedDay, day);
-                },
-                onDaySelected: (selectedDay, focusedDay) {
-                  if (!isSameDay(_selectedDay, selectedDay)) {
-                    // Save current content before switching
-                    if (_isEditing) {
-                      _editorKey.currentState?.saveBeforeSwitch();
+                  firstDay: DateTime(2020),
+                  lastDay: DateTime(2030),
+                  focusedDay: _focusedDay,
+                  selectedDayPredicate: (day) {
+                    return isSameDay(_selectedDay, day);
+                  },
+                  onDaySelected: (selectedDay, focusedDay) {
+                    if (!isSameDay(_selectedDay, selectedDay)) {
+                      setState(() {
+                        _selectedDay = selectedDay;
+                        _focusedDay = focusedDay;
+                      });
+                      _loadDailyContent(selectedDay);
                     }
-                    
-                    setState(() {
-                      _selectedDay = selectedDay;
-                      _focusedDay = focusedDay;
-                      _isEditing = false;
-                    });
-                    _loadDailyContent(selectedDay);
-                  }
-                },
-                onPageChanged: (focusedDay) {
-                  _focusedDay = focusedDay;
-                },
-                eventLoader: (day) {
-                  // We're using custom day builders instead of events
-                  return [];
-                },
-                calendarFormat: CalendarFormat.month,
-                startingDayOfWeek: StartingDayOfWeek.monday,
-                calendarStyle: const CalendarStyle(
-                  outsideDaysVisible: false,
-                  markersMaxCount: 0, // We'll use custom day builder instead
-                ),
-                calendarBuilders: CalendarBuilders(
-                  defaultBuilder: (context, day, focusedDay) {
-                    return _buildCustomDay(context, day, focusedDay, fileProvider);
                   },
-                  selectedBuilder: (context, day, focusedDay) {
-                    return _buildCustomDay(context, day, focusedDay, fileProvider, isSelected: true);
+                  onPageChanged: (focusedDay) {
+                    _focusedDay = focusedDay;
                   },
-                  todayBuilder: (context, day, focusedDay) {
-                    return _buildCustomDay(context, day, focusedDay, fileProvider, isToday: true);
+                  eventLoader: (day) {
+                    // We're using custom day builders instead of events
+                    return [];
                   },
+                  calendarFormat: CalendarFormat.month,
+                  startingDayOfWeek: StartingDayOfWeek.monday,
+                  calendarStyle: const CalendarStyle(
+                    outsideDaysVisible: false,
+                    markersMaxCount: 0, // We'll use custom day builder instead
+                    cellPadding:
+                        EdgeInsets.zero, // Remove internal cell padding
+                    cellMargin: EdgeInsets.zero, // Remove internal cell margin
+                  ),
+                  calendarBuilders: CalendarBuilders(
+                    defaultBuilder: (context, day, focusedDay) {
+                      return _buildCustomDay(
+                          context, day, focusedDay, fileProvider);
+                    },
+                    selectedBuilder: (context, day, focusedDay) {
+                      return _buildCustomDay(
+                          context, day, focusedDay, fileProvider,
+                          isSelected: true);
+                    },
+                    todayBuilder: (context, day, focusedDay) {
+                      return _buildCustomDay(
+                          context, day, focusedDay, fileProvider,
+                          isToday: true);
+                    },
+                  ),
+                  headerStyle: const HeaderStyle(
+                    formatButtonVisible: false,
+                    titleCentered: true,
+                    leftChevronPadding:
+                        EdgeInsets.zero, // Remove header padding
+                    rightChevronPadding:
+                        EdgeInsets.zero, // Remove header padding
+                  ),
+                  daysOfWeekStyle: const DaysOfWeekStyle(
+                    weekdayStyle: TextStyle(fontSize: 12), // Smaller day labels
+                    weekendStyle: TextStyle(fontSize: 12), // Smaller day labels
+                  ),
                 ),
-                headerStyle: const HeaderStyle(
-                  formatButtonVisible: false,
-                  titleCentered: true,
-                ),
-              ),
             ),
-            
-            // Daily content
+
+            // Daily content - Takes remaining space with flex
             Expanded(
               child: Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(
+                    16, 0, 16, 16), // Remove top padding
                 child: _selectedDay != null
-                    ? _buildDailyContent(fileProvider)
+                    ? SingleChildScrollView(
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).viewInsets.bottom,
+                        ),
+                        child: _buildDailyContent(fileProvider),
+                      )
                     : const Center(
                         child: Text('Select a day to view content'),
                       ),
@@ -119,82 +135,68 @@ class _CalendarViewState extends State<CalendarView> {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             IconButton(
-              onPressed: () {
-                if (_isEditing) {
-                  // Save before switching to view mode
-                  _editorKey.currentState?.saveBeforeSwitch();
-                }
-                setState(() {
-                  _isEditing = !_isEditing;
-                });
-              },
-              icon: Icon(_isEditing ? Icons.visibility : Icons.edit),
+              onPressed: () => _openDailyEditor(
+                  context, fileProvider, dateString, initialContent),
+              icon: const Icon(Icons.edit),
+              tooltip: 'Edit daily notes',
             ),
-            if (!_isEditing) ...[
-              IconButton(
-                onPressed: () => _showRefileDialog(context, fileProvider, dateString),
-                icon: const Icon(Icons.move_to_inbox),
-                tooltip: 'Refile items to another day',
-              ),
-              IconButton(
-                onPressed: () => _showRefillDialog(context, fileProvider, dateString),
-                icon: const Icon(Icons.refresh),
-                tooltip: 'Refill undone todos until today',
-              ),
-            ],
+            IconButton(
+              onPressed: () =>
+                  _showRefileDialog(context, fileProvider, dateString),
+              icon: const Icon(Icons.move_to_inbox),
+              tooltip: 'Refile items to another day',
+            ),
+            IconButton(
+              onPressed: () =>
+                  _showRefillDialog(context, fileProvider, dateString),
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refill undone todos until today',
+            ),
           ],
         ),
         const SizedBox(height: 16),
-        
+
         // Calendar events, tasks, and notes sections
-        if (!_isEditing && dailyFile != null)
-          Expanded(
-            child: GestureDetector(
-              onDoubleTap: () {
-                setState(() {
-                  _isEditing = true;
-                });
-              },
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildCalendarEventsSection(fileProvider, dateString),
-                    const SizedBox(height: 12),
-                    _buildTasksSection(fileProvider, dateString),
-                    const SizedBox(height: 12),
-                    _buildNotesSection(fileProvider, dateString),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        
-        if (_isEditing)
-          Expanded(
-            child: DailyEditor(
-              key: _editorKey,
-              date: dateString,
-              initialContent: initialContent,
-              onSave: (content) {
-                fileProvider.saveDailyFile(dateString, content);
-                setState(() {
-                  _isEditing = false;
-                });
-              },
-              onAutoSave: (content) {
-                fileProvider.saveDailyFile(dateString, content);
-                // Don't change editing state for autosave
-              },
+        if (dailyFile != null)
+          GestureDetector(
+            onDoubleTap: () => _openDailyEditor(
+                context, fileProvider, dateString, initialContent),
+            child: Column(
+              children: [
+                _buildCalendarEventsSection(fileProvider, dateString),
+                const SizedBox(height: 12),
+                _buildTasksSection(fileProvider, dateString),
+                const SizedBox(height: 12),
+                _buildNotesSection(fileProvider, dateString),
+              ],
             ),
           ),
       ],
     );
   }
 
-
   void _loadDailyContent(DateTime day) {
     final dateString = _formatDate(day);
     context.read<FileProvider>().setSelectedDate(dateString);
+  }
+
+  void _openDailyEditor(BuildContext context, FileProvider fileProvider,
+      String dateString, String initialContent) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => DailyEditorFullscreen(
+          date: dateString,
+          initialContent: initialContent,
+          onSave: (content) {
+            fileProvider.saveDailyFile(dateString, content);
+          },
+          onAutoSave: (content) {
+            fileProvider.saveDailyFile(dateString, content);
+            // Don't show snackbar for autosave
+          },
+        ),
+      ),
+    );
   }
 
   String _formatDate(DateTime date) {
@@ -205,7 +207,9 @@ class _CalendarViewState extends State<CalendarView> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  Widget _buildCustomDay(BuildContext context, DateTime day, DateTime focusedDay, FileProvider fileProvider, {bool isSelected = false, bool isToday = false}) {
+  Widget _buildCustomDay(BuildContext context, DateTime day,
+      DateTime focusedDay, FileProvider fileProvider,
+      {bool isSelected = false, bool isToday = false}) {
     final dateString = _formatDate(day);
     final undoneTodoCount = fileProvider.getUndoneTodoCount(dateString);
     final hasTodos = fileProvider.hasTodos(dateString);
@@ -225,9 +229,10 @@ class _CalendarViewState extends State<CalendarView> {
     );
   }
 
-  Widget _buildCalendarEventsSection(FileProvider fileProvider, String dateString) {
+  Widget _buildCalendarEventsSection(
+      FileProvider fileProvider, String dateString) {
     final events = fileProvider.getCalendarEvents(dateString);
-    
+
     if (events.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -252,64 +257,78 @@ class _CalendarViewState extends State<CalendarView> {
               Text(
                 'Events',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          ...events.map((event) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 4,
-                  height: 4,
-                  margin: const EdgeInsets.only(top: 6, right: 8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            event.formattedTime,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+          ...events
+              .map((event) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 4,
+                          margin: const EdgeInsets.only(top: 6, right: 8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: BoxShape.circle,
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              event.displayTitle,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (event.description.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          event.description,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    event.formattedTime,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                        ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      event.displayTitle,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (event.description.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  event.description,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          )).toList(),
+                    ),
+                  ))
+              .toList(),
         ],
       ),
     );
@@ -322,7 +341,7 @@ class _CalendarViewState extends State<CalendarView> {
     }
 
     final tasks = _parseTasks(dailyFile.content);
-    
+
     if (tasks.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -347,43 +366,52 @@ class _CalendarViewState extends State<CalendarView> {
               Text(
                 'Tasks',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          ...tasks.map((task) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 4,
-                  height: 4,
-                  margin: const EdgeInsets.only(top: 6, right: 8),
-                  decoration: BoxDecoration(
-                    color: task.isCompleted 
-                        ? Theme.of(context).colorScheme.secondary 
-                        : Theme.of(context).colorScheme.error,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    task.text,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-                      color: task.isCompleted 
-                          ? Theme.of(context).colorScheme.onSurfaceVariant
-                          : null,
+          ...tasks
+              .map((task) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 4,
+                          margin: const EdgeInsets.only(top: 6, right: 8),
+                          decoration: BoxDecoration(
+                            color: task.isCompleted
+                                ? Theme.of(context).colorScheme.secondary
+                                : Theme.of(context).colorScheme.error,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            task.text,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  decoration: task.isCompleted
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                                  color: task.isCompleted
+                                      ? Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant
+                                      : null,
+                                ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-              ],
-            ),
-          )).toList(),
+                  ))
+              .toList(),
         ],
       ),
     );
@@ -392,9 +420,10 @@ class _CalendarViewState extends State<CalendarView> {
   List<TaskItem> _parseTasks(String content) {
     final tasks = <TaskItem>[];
     final lines = content.split('\n');
-    
+
     for (final line in lines) {
-      final todoMatch = RegExp(r'^\s*[-*+]\s*\[\s*([x\s])\s*\]\s+(.+)$').firstMatch(line);
+      final todoMatch =
+          RegExp(r'^\s*[-*+]\s*\[\s*([x\s])\s*\]\s+(.+)$').firstMatch(line);
       if (todoMatch != null) {
         final isCompleted = todoMatch.group(1) == 'x';
         final text = todoMatch.group(2)!.trim();
@@ -404,7 +433,7 @@ class _CalendarViewState extends State<CalendarView> {
         ));
       }
     }
-    
+
     return tasks;
   }
 
@@ -415,7 +444,7 @@ class _CalendarViewState extends State<CalendarView> {
     }
 
     final notes = _parseNotes(dailyFile.content);
-    
+
     if (notes.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -440,36 +469,38 @@ class _CalendarViewState extends State<CalendarView> {
               Text(
                 'Notes',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          ...notes.map((note) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 4,
-                  height: 4,
-                  margin: const EdgeInsets.only(top: 6, right: 8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    note,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-              ],
-            ),
-          )).toList(),
+          ...notes
+              .map((note) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 4,
+                          margin: const EdgeInsets.only(top: 6, right: 8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            note,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ))
+              .toList(),
         ],
       ),
     );
@@ -478,39 +509,42 @@ class _CalendarViewState extends State<CalendarView> {
   List<String> _parseNotes(String content) {
     final notes = <String>[];
     final lines = content.split('\n');
-    
+
     for (final line in lines) {
       final trimmedLine = line.trim();
-      
+
       // Skip empty lines
       if (trimmedLine.isEmpty) continue;
-      
+
       // Skip events (lines with @HH:MM)
       if (RegExp(r'@\d{1,2}:\d{2}').hasMatch(trimmedLine)) continue;
-      
+
       // Skip tasks (lines with [ ] or [x])
-      if (RegExp(r'^\s*[-*+]\s*\[\s*[x\s]\s*\]\s+').hasMatch(trimmedLine)) continue;
-      
+      if (RegExp(r'^\s*[-*+]\s*\[\s*[x\s]\s*\]\s+').hasMatch(trimmedLine))
+        continue;
+
       // Skip markdown headers (lines starting with #)
       if (trimmedLine.startsWith('#')) continue;
-      
+
       // Skip markdown list markers without checkboxes
       if (RegExp(r'^\s*[-*+]\s+').hasMatch(trimmedLine)) {
-        final cleanLine = trimmedLine.replaceAll(RegExp(r'^\s*[-*+]\s+'), '').trim();
+        final cleanLine =
+            trimmedLine.replaceAll(RegExp(r'^\s*[-*+]\s+'), '').trim();
         if (cleanLine.isNotEmpty) {
           notes.add(cleanLine);
         }
         continue;
       }
-      
+
       // Add regular text content
       notes.add(trimmedLine);
     }
-    
+
     return notes;
   }
 
-  void _showRefileDialog(BuildContext context, FileProvider fileProvider, String currentDate) {
+  void _showRefileDialog(
+      BuildContext context, FileProvider fileProvider, String currentDate) {
     final dailyFile = fileProvider.getDailyFile(currentDate);
     if (dailyFile == null || dailyFile.content.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -544,7 +578,8 @@ class _CalendarViewState extends State<CalendarView> {
     );
   }
 
-  void _performRefile(BuildContext context, FileProvider fileProvider, String currentDate, String targetDate, List<RefileItem> items) {
+  void _performRefile(BuildContext context, FileProvider fileProvider,
+      String currentDate, String targetDate, List<RefileItem> items) {
     final dailyFile = fileProvider.getDailyFile(currentDate);
     if (dailyFile == null) return;
 
@@ -563,7 +598,7 @@ class _CalendarViewState extends State<CalendarView> {
     if (newTargetContent.isNotEmpty && !newTargetContent.endsWith('\n')) {
       newTargetContent += '\n';
     }
-    
+
     for (final item in items) {
       newTargetContent += item.content + '\n';
     }
@@ -577,7 +612,9 @@ class _CalendarViewState extends State<CalendarView> {
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Moved ${items.length} item(s) to ${_formatDisplayDate(_parseDateFromString(targetDate))}')),
+        SnackBar(
+            content: Text(
+                'Moved ${items.length} item(s) to ${_formatDisplayDate(_parseDateFromString(targetDate))}')),
       );
     }
   }
@@ -585,13 +622,13 @@ class _CalendarViewState extends State<CalendarView> {
   String _removeItemFromContent(String content, RefileItem item) {
     final lines = content.split('\n');
     final newLines = <String>[];
-    
+
     for (final line in lines) {
       if (line.trim() != item.content.trim()) {
         newLines.add(line);
       }
     }
-    
+
     return newLines.join('\n');
   }
 
@@ -602,10 +639,11 @@ class _CalendarViewState extends State<CalendarView> {
     return DateTime(year, month, day);
   }
 
-  void _showRefillDialog(BuildContext context, FileProvider fileProvider, String currentDate) {
+  void _showRefillDialog(
+      BuildContext context, FileProvider fileProvider, String currentDate) {
     final today = DateTime.now();
     final currentDateTime = _parseDateFromString(currentDate);
-    
+
     // Only show refill if current date is today
     if (!isSameDay(currentDateTime, today)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -617,13 +655,13 @@ class _CalendarViewState extends State<CalendarView> {
     // Collect all undone todos from previous days
     final undoneTodos = <RefillTodo>[];
     final todayDateString = _formatDate(today);
-    
+
     // Check the last 30 days for undone todos
     for (int i = 1; i <= 30; i++) {
       final checkDate = today.subtract(Duration(days: i));
       final checkDateString = _formatDate(checkDate);
       final dailyFile = fileProvider.getDailyFile(checkDateString);
-      
+
       if (dailyFile != null && dailyFile.content.isNotEmpty) {
         final tasks = _parseTasks(dailyFile.content);
         for (final task in tasks) {
@@ -640,7 +678,8 @@ class _CalendarViewState extends State<CalendarView> {
 
     if (undoneTodos.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No undone todos found in the last 30 days')),
+        const SnackBar(
+            content: Text('No undone todos found in the last 30 days')),
       );
       return;
     }
@@ -656,56 +695,61 @@ class _CalendarViewState extends State<CalendarView> {
     );
   }
 
-  void _performRefill(BuildContext context, FileProvider fileProvider, List<RefillTodo> selectedTodos) {
+  void _performRefill(BuildContext context, FileProvider fileProvider,
+      List<RefillTodo> selectedTodos) {
     final today = DateTime.now();
     final todayDateString = _formatDate(today);
-    
+
     // Get today's content
     final todayDailyFile = fileProvider.getDailyFile(todayDateString);
     String todayContent = todayDailyFile?.content ?? '';
-    
+
     // Add todos to today
     if (todayContent.isNotEmpty && !todayContent.endsWith('\n')) {
       todayContent += '\n';
     }
-    
+
     // Group todos by source date for removal
     final todosByDate = <String, List<RefillTodo>>{};
     for (final todo in selectedTodos) {
       todosByDate.putIfAbsent(todo.sourceDate, () => []).add(todo);
     }
-    
+
     // Remove todos from source dates
     for (final entry in todosByDate.entries) {
       final sourceDate = entry.key;
       final todos = entry.value;
       final sourceDailyFile = fileProvider.getDailyFile(sourceDate);
-      
+
       if (sourceDailyFile != null) {
         String newSourceContent = sourceDailyFile.content;
         for (final todo in todos) {
-          newSourceContent = _removeItemFromContent(newSourceContent, RefileItem(
-            content: todo.content,
-            type: 'task',
-          ));
+          newSourceContent = _removeItemFromContent(
+              newSourceContent,
+              RefileItem(
+                content: todo.content,
+                type: 'task',
+              ));
         }
         fileProvider.saveDailyFile(sourceDate, newSourceContent);
       }
     }
-    
+
     // Add todos to today
     for (final todo in selectedTodos) {
       todayContent += todo.content + '\n';
     }
-    
+
     fileProvider.saveDailyFile(todayDateString, todayContent);
-    
+
     // Refresh the UI
     setState(() {});
-    
+
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Refilled ${selectedTodos.length} undone todo(s) to today')),
+        SnackBar(
+            content: Text(
+                'Refilled ${selectedTodos.length} undone todo(s) to today')),
       );
     }
   }
@@ -796,7 +840,8 @@ class _RefileDialogState extends State<_RefileDialog> {
             ListTile(
               leading: const Icon(Icons.calendar_today),
               title: const Text('Target Date'),
-              subtitle: Text('${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}'),
+              subtitle: Text(
+                  '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}'),
               trailing: const Icon(Icons.arrow_drop_down),
               onTap: () async {
                 final date = await showDatePicker(
@@ -813,14 +858,16 @@ class _RefileDialogState extends State<_RefileDialog> {
               },
             ),
             const Divider(),
-            
+
             // Items to refile
-            const Text('Select items to move:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Select items to move:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            
+
             // Events
             if (widget.events.isNotEmpty) ...[
-              const Text('Events:', style: TextStyle(fontWeight: FontWeight.w500)),
+              const Text('Events:',
+                  style: TextStyle(fontWeight: FontWeight.w500)),
               ...widget.events.map((CalendarEvent event) {
                 final eventKey = '${event.formattedTime} ${event.displayTitle}';
                 return CheckboxListTile(
@@ -835,35 +882,38 @@ class _RefileDialogState extends State<_RefileDialog> {
                 );
               }),
             ],
-            
+
             // Tasks
             if (widget.tasks.isNotEmpty) ...[
-              const Text('Tasks:', style: TextStyle(fontWeight: FontWeight.w500)),
+              const Text('Tasks:',
+                  style: TextStyle(fontWeight: FontWeight.w500)),
               ...widget.tasks.map((task) => CheckboxListTile(
-                title: Text('${task.isCompleted ? "[x]" : "[ ]"} ${task.text}'),
-                value: _selectedItems[task.text] ?? false,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedItems[task.text] = value ?? false;
-                  });
-                },
-                dense: true,
-              )),
+                    title: Text(
+                        '${task.isCompleted ? "[x]" : "[ ]"} ${task.text}'),
+                    value: _selectedItems[task.text] ?? false,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedItems[task.text] = value ?? false;
+                      });
+                    },
+                    dense: true,
+                  )),
             ],
-            
+
             // Notes
             if (widget.notes.isNotEmpty) ...[
-              const Text('Notes:', style: TextStyle(fontWeight: FontWeight.w500)),
+              const Text('Notes:',
+                  style: TextStyle(fontWeight: FontWeight.w500)),
               ...widget.notes.map((note) => CheckboxListTile(
-                title: Text(note),
-                value: _selectedItems[note] ?? false,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedItems[note] = value ?? false;
-                  });
-                },
-                dense: true,
-              )),
+                    title: Text(note),
+                    value: _selectedItems[note] ?? false,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedItems[note] = value ?? false;
+                      });
+                    },
+                    dense: true,
+                  )),
             ],
           ],
         ),
@@ -876,7 +926,7 @@ class _RefileDialogState extends State<_RefileDialog> {
         TextButton(
           onPressed: () {
             final selectedItems = <RefileItem>[];
-            
+
             // Collect selected events
             for (final event in widget.events) {
               final eventKey = '${event.formattedTime} ${event.displayTitle}';
@@ -884,27 +934,32 @@ class _RefileDialogState extends State<_RefileDialog> {
                 // Use the original title which includes @HH:MM
                 final eventContent = event.title;
                 if (event.description.isNotEmpty) {
-                  selectedItems.add(RefileItem(content: '$eventContent\n${event.description}', type: 'event'));
+                  selectedItems.add(RefileItem(
+                      content: '$eventContent\n${event.description}',
+                      type: 'event'));
                 } else {
-                  selectedItems.add(RefileItem(content: eventContent, type: 'event'));
+                  selectedItems
+                      .add(RefileItem(content: eventContent, type: 'event'));
                 }
               }
             }
-            
+
             // Collect selected tasks
             for (final task in widget.tasks) {
               if (_selectedItems[task.text] == true) {
-                selectedItems.add(RefileItem(content: '- [${task.isCompleted ? "x" : " "}] ${task.text}', type: 'task'));
+                selectedItems.add(RefileItem(
+                    content: '- [${task.isCompleted ? "x" : " "}] ${task.text}',
+                    type: 'task'));
               }
             }
-            
+
             // Collect selected notes
             for (final note in widget.notes) {
               if (_selectedItems[note] == true) {
                 selectedItems.add(RefileItem(content: note, type: 'note'));
               }
             }
-            
+
             if (selectedItems.isNotEmpty) {
               widget.onRefile(_formatDate(_selectedDate), selectedItems);
               Navigator.of(context).pop();
@@ -948,7 +1003,7 @@ class _RefillDialogState extends State<_RefillDialog> {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
-            
+
             // Select all/none buttons
             Row(
               children: [
@@ -974,7 +1029,7 @@ class _RefillDialogState extends State<_RefillDialog> {
               ],
             ),
             const SizedBox(height: 8),
-            
+
             // Todos list
             Expanded(
               child: ListView.builder(
@@ -1008,7 +1063,7 @@ class _RefillDialogState extends State<_RefillDialog> {
             final selectedTodos = widget.undoneTodos
                 .where((todo) => _selectedTodos[todo.content] == true)
                 .toList();
-            
+
             if (selectedTodos.isNotEmpty) {
               widget.onRefill(selectedTodos);
               Navigator.of(context).pop();
@@ -1020,3 +1075,4 @@ class _RefillDialogState extends State<_RefillDialog> {
     );
   }
 }
+

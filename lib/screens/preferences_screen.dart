@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 import '../providers/theme_provider.dart';
 import '../providers/file_provider.dart';
+import '../utils/permission_helper.dart';
 
 class PreferencesScreen extends StatelessWidget {
   const PreferencesScreen({super.key});
@@ -83,6 +86,36 @@ class PreferencesScreen extends StatelessWidget {
                         : 'Template configured'),
                     trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () => _showTemplateDialog(context, themeProvider),
+                  );
+                },
+              ),
+            ],
+          ),
+
+          const Divider(),
+
+          // Debug section
+          _buildSection(
+            context,
+            title: 'Debug Info',
+            children: [
+              Consumer<ThemeProvider>(
+                builder: (context, themeProvider, child) {
+                  return ListTile(
+                    leading: const Icon(Icons.settings),
+                    title: const Text('Configured Storage Path'),
+                    subtitle: Text(themeProvider.getDisplayStoragePath()),
+                    isThreeLine: true,
+                  );
+                },
+              ),
+              Consumer<FileProvider>(
+                builder: (context, fileProvider, child) {
+                  return ListTile(
+                    leading: const Icon(Icons.info_outline),
+                    title: const Text('Actual Storage Path'),
+                    subtitle: Text(fileProvider.getCurrentStoragePath()),
+                    isThreeLine: true,
                   );
                 },
               ),
@@ -265,29 +298,87 @@ class PreferencesScreen extends StatelessWidget {
   Future<void> _selectCustomStorageLocation(
       BuildContext context, ThemeProvider themeProvider) async {
     try {
+      // Show a dialog explaining permissions for Android 11+
+      if (Platform.isAndroid) {
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        if (androidInfo.version.sdkInt >= 30) {
+          final shouldProceed = await _showPermissionExplanationDialog(context);
+          if (!shouldProceed) return;
+        }
+      }
+
+      // Request storage permissions first
+      final hasPermission = await PermissionHelper.requestStoragePermission();
+      if (!hasPermission) {
+        if (context.mounted) {
+          // Show a dialog with instructions to enable permission
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Permission Required'),
+              content: const Text(
+                'Storage permission is required to select a custom location.\n\n'
+                'Please go to Settings > Apps > Planova > Permissions and enable "All files access" or "Storage" permission.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    openAppSettings();
+                  },
+                  child: const Text('Open Settings'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
       String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
 
       if (selectedDirectory != null && context.mounted) {
         // Use the selected directory directly without creating an Org subfolder
         final selectedDir = Directory(selectedDirectory);
 
-        // Set the storage path
-        themeProvider.setStoragePath(selectedDir.path);
-        Navigator.of(context).pop();
+        // Test if the directory is writable
+        try {
+          final testFile = File('${selectedDir.path}/.test_write');
+          await testFile.writeAsString('test');
+          await testFile.delete();
+          
+          // Set the storage path
+          themeProvider.setStoragePath(selectedDir.path);
+          Navigator.of(context).pop();
 
-        // Reinitialize file provider with new location
-        _reinitializeFileProvider(context);
+          // Reinitialize file provider with new location
+          _reinitializeFileProvider(context);
 
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Storage location changed to: ${selectedDir.path}'),
-              action: SnackBarAction(
-                label: 'OK',
-                onPressed: () {},
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Storage location changed to: ${selectedDir.path}'),
+                action: SnackBarAction(
+                  label: 'OK',
+                  onPressed: () {},
+                ),
               ),
-            ),
-          );
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Cannot write to selected directory: $e\nUsing default location instead.'),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -300,6 +391,30 @@ class PreferencesScreen extends StatelessWidget {
         );
       }
     }
+  }
+
+  Future<bool> _showPermissionExplanationDialog(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Storage Permission Required'),
+        content: const Text(
+          'To select a custom storage location, Planova needs permission to access all files on your device. '
+          'This is required for Android 11 and later versions.\n\n'
+          'You will be redirected to system settings to grant this permission.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 
   void _resetStorageLocation(

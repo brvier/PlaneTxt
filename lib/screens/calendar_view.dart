@@ -2,12 +2,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
 import '../providers/file_provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/daily_file.dart';
 import '../models/calendar_event.dart';
 import '../widgets/daily_editor_fullscreen.dart';
 import '../widgets/calendar_day_widget.dart';
+import '../widgets/quick_add_modal.dart';
 
 class CalendarView extends StatefulWidget {
   const CalendarView({super.key});
@@ -135,6 +137,11 @@ class _CalendarViewState extends State<CalendarView> {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             IconButton(
+              onPressed: () => _showQuickAddModal(context, fileProvider),
+              icon: const Icon(Icons.add),
+              tooltip: 'Quick add event or todo',
+            ),
+            IconButton(
               onPressed: () => _openDailyEditor(
                   context, fileProvider, dateString, initialContent),
               icon: const Icon(Icons.edit),
@@ -178,6 +185,29 @@ class _CalendarViewState extends State<CalendarView> {
   void _loadDailyContent(DateTime day) {
     final dateString = _formatDate(day);
     context.read<FileProvider>().setSelectedDate(dateString);
+  }
+
+  void _showQuickAddModal(BuildContext context, FileProvider fileProvider) {
+    if (_selectedDay == null) return;
+    
+    final dateString = _formatDate(_selectedDay!);
+    final dailyFile = fileProvider.getDailyFile(dateString);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final currentContent = dailyFile?.content ?? themeProvider.dailyTemplate;
+    
+    showDialog(
+      context: context,
+      builder: (context) => QuickAddModal(
+        selectedDate: _selectedDay!,
+        onAdd: (content) {
+          // Append the new content to the existing daily content
+          final newContent = currentContent.isEmpty 
+              ? content 
+              : '$currentContent\n\n$content';
+          fileProvider.saveDailyFile(dateString, newContent);
+        },
+      ),
+    );
   }
 
   void _openDailyEditor(BuildContext context, FileProvider fileProvider,

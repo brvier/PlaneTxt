@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
 
@@ -73,6 +74,7 @@ class MarkdownEditorState extends State<MarkdownEditor> {
       }
     });
   }
+
 
   @override
   void dispose() {
@@ -175,6 +177,9 @@ class MarkdownEditorState extends State<MarkdownEditor> {
               fontFamily: 'monospace',
               fontSize: 14,
             ),
+            inputFormatters: [
+              _MarkdownInputFormatter(),
+            ],
           ),
         ),
       ],
@@ -380,5 +385,88 @@ class MarkdownEditorState extends State<MarkdownEditor> {
         ),
       ),
     );
+  }
+}
+
+class _MarkdownInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Check if this is an Enter key press (newline added)
+    if (newValue.text.length > oldValue.text.length) {
+      // Find the difference - check if a newline was just added
+      final oldLines = oldValue.text.split('\n');
+      final newLines = newValue.text.split('\n');
+      
+      if (newLines.length > oldLines.length) {
+        // A newline was added, find which line was split
+        final text = newValue.text;
+        final selection = newValue.selection;
+        
+        if (!selection.isValid) return newValue;
+
+        // Find the current line (the one with the cursor)
+        final lines = text.split('\n');
+        int currentLine = 0;
+        int currentPosition = 0;
+
+        for (int i = 0; i < lines.length; i++) {
+          final lineLength = lines[i].length + 1; // +1 for newline
+          if (currentPosition + lineLength > selection.start) {
+            currentLine = i;
+            break;
+          }
+          currentPosition += lineLength;
+        }
+
+        if (currentLine >= lines.length) return newValue;
+
+        // Get the previous line (the one that was split)
+        final previousLineIndex = currentLine - 1;
+        if (previousLineIndex < 0) return newValue;
+        
+        final previousLineText = lines[previousLineIndex];
+        
+        // Check for patterns that should be continued
+        final patterns = [
+          RegExp(r'^(\s*)(-\s+\[[x\s]\]\s+)(.*)$'), // - [x] or - [ ] item (check this first)
+          RegExp(r'^(\s*)(-\s+@\d{2}:\d{2}\s+)(.*)$'), // - @14:00 item
+          RegExp(r'^(\s*)(-\s+)(.*)$'), // - item (check this last)
+        ];
+
+        String? indent;
+        String? prefix;
+
+        for (final pattern in patterns) {
+          final match = pattern.firstMatch(previousLineText);
+          if (match != null) {
+            indent = match.group(1) ?? '';
+            prefix = match.group(2) ?? '';
+            break;
+          }
+        }
+
+        if (indent != null && prefix != null) {
+          // Insert new line with the same indentation and prefix
+          final newLine = '$indent$prefix';
+          final newText = text.replaceRange(
+            selection.start,
+            selection.end,
+            newLine,
+          );
+
+          return TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(
+              offset: selection.start + newLine.length,
+            ),
+          );
+        }
+      }
+    }
+    
+    return newValue;
   }
 }

@@ -214,7 +214,8 @@ class DailyEditorState extends State<DailyEditor> {
       );
     } else {
       // If no todo checkbox, insert a new todo item
-      final indent = currentLineText.replaceAll(RegExp(r'^(\s*).*$'), r'$1');
+      final indentMatch = RegExp(r'^(\s*)').firstMatch(currentLineText);
+      final indent = indentMatch?.group(1) ?? '';
       final newTodo = '${indent}- [ ] ';
       
       // Insert at the beginning of the line

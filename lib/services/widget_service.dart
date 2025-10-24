@@ -1,0 +1,370 @@
+import 'package:home_widget/home_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/daily_file.dart';
+import '../models/note_file.dart';
+
+class WidgetService {
+  static const String _widgetName = 'PlanovaWidget';
+  static const String _dailyContentKey = 'widget_daily_content';
+  static const String _notesContentKey = 'widget_notes_content';
+  static const String _dateKey = 'widget_date';
+
+  /// Initialize the widget service
+  static Future<void> initialize() async {
+    try {
+      await HomeWidget.setAppGroupId('group.fr.rvier.planova');
+      print('📱 WidgetService: Initialized successfully');
+    } catch (e) {
+      print('❌ WidgetService: Error initializing: $e');
+    }
+  }
+
+  /// Update widget with today's daily file content
+  static Future<void> updateWithDailyFile(DailyFile? dailyFile, {bool? isDarkTheme, double? transparency}) async {
+    if (dailyFile == null) return;
+
+    try {
+      // Use raw markdown content for widget
+      final content = dailyFile.content;
+      
+      // Format content for widget with daily view style
+      final widgetContent = _formatDailyContentWithMarkdown(content);
+      
+      // Save to SharedPreferences for widget access
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_dailyContentKey, widgetContent);
+      await prefs.setString(_dateKey, dailyFile.date);
+      
+      // Save theme preference if provided
+      if (isDarkTheme != null) {
+        await prefs.setBool('flutter.widget_dark_theme', isDarkTheme);
+        print('📱 WidgetService: Saved widget theme preference: $isDarkTheme');
+      }
+      
+      // Save transparency preference if provided
+      if (transparency != null) {
+        await prefs.setDouble('flutter.widget_transparency', transparency);
+        print('📱 WidgetService: Saved widget transparency preference: $transparency');
+      }
+      
+      // Update widget
+      await HomeWidget.saveWidgetData<String>(_dailyContentKey, widgetContent);
+      await HomeWidget.saveWidgetData<String>(_dateKey, dailyFile.date);
+      await HomeWidget.updateWidget(
+        name: _widgetName,
+        androidName: 'PlanovaWidgetProvider',
+      );
+      
+      print('📱 WidgetService: Updated widget with daily content for ${dailyFile.date}');
+    } catch (e) {
+      print('❌ WidgetService: Error updating widget with daily file: $e');
+    }
+  }
+
+  /// Update widget with recent notes
+  static Future<void> updateWithNotes(List<NoteFile> notes, {bool? isDarkTheme, double? transparency}) async {
+    try {
+      // Get the 3 most recent notes
+      final recentNotes = notes.take(3).toList();
+      
+      // Format notes for widget with raw markdown
+      final widgetContent = _formatNotesWithMarkdown(recentNotes);
+      
+      // Save to SharedPreferences for widget access
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_notesContentKey, widgetContent);
+      
+      // Save theme preference if provided
+      if (isDarkTheme != null) {
+        await prefs.setBool('flutter.widget_dark_theme', isDarkTheme);
+      }
+      
+      // Save transparency preference if provided
+      if (transparency != null) {
+        await prefs.setDouble('flutter.widget_transparency', transparency);
+      }
+      
+      // Update widget
+      await HomeWidget.saveWidgetData<String>(_notesContentKey, widgetContent);
+      await HomeWidget.updateWidget(
+        name: _widgetName,
+        androidName: 'PlanovaWidgetProvider',
+      );
+      
+      print('📱 WidgetService: Updated widget with ${recentNotes.length} recent notes');
+    } catch (e) {
+      print('❌ WidgetService: Error updating widget with notes: $e');
+    }
+  }
+
+  /// Extract todos from daily content
+  static List<String> _extractTodos(String content) {
+    final lines = content.split('\n');
+    final todos = <String>[];
+    
+    for (final line in lines) {
+      final trimmed = line.trim();
+      final todoMatch = RegExp(r'^-\s*\[\s*([x\s])\s*\]\s+(.+)$').firstMatch(trimmed);
+      if (todoMatch != null) {
+        final isCompleted = todoMatch.group(1) == 'x';
+        final text = todoMatch.group(2)!.trim();
+        if (text.isNotEmpty) {
+          // Add visual indicator for completion status
+          final status = isCompleted ? '✓' : '○';
+          todos.add('$status $text');
+        }
+      }
+    }
+    
+    return todos.take(5).toList(); // Limit to 5 todos
+  }
+
+  /// Extract events from daily content
+  static List<String> _extractEvents(String content) {
+    final lines = content.split('\n');
+    final events = <String>[];
+    
+    for (final line in lines) {
+      final timeMatch = RegExp(r'@(\d{1,2}):(\d{2})').firstMatch(line);
+      if (timeMatch != null) {
+        final hour = timeMatch.group(1)!;
+        final minute = timeMatch.group(2)!;
+        final time = '${hour.padLeft(2, '0')}:$minute';
+        final event = line.replaceAll(RegExp(r'@\d{1,2}:\d{2}'), '').trim();
+        if (event.isNotEmpty) {
+          events.add('$time $event');
+        }
+      }
+    }
+    
+    return events.take(3).toList(); // Limit to 3 events
+  }
+
+  /// Format daily content for widget display
+  static String _formatDailyContentForWidget(List<String> todos, List<String> events) {
+    final buffer = StringBuffer();
+    
+    if (events.isNotEmpty) {
+      buffer.writeln('📅 Events:');
+      for (final event in events) {
+        buffer.writeln('• $event');
+      }
+      buffer.writeln();
+    }
+    
+    if (todos.isNotEmpty) {
+      buffer.writeln('✅ Tasks:');
+      for (final todo in todos) {
+        buffer.writeln('$todo');
+      }
+    }
+    
+    if (buffer.isEmpty) {
+      return 'No tasks or events for today';
+    }
+    
+    return buffer.toString();
+  }
+
+  /// Format daily content with markdown for widget display
+  static String _formatDailyContentWithMarkdown(String content) {
+    if (content.trim().isEmpty) {
+      return 'No content for today';
+    }
+    
+    // Create structured widget content similar to daily view
+    return _createStructuredWidgetContent(content);
+  }
+
+  /// Format content similar to daily view with events and tasks sections
+  static String _formatDailyViewStyle(List<String> events, List<String> tasks) {
+    final buffer = StringBuffer();
+    
+    // Events section
+    if (events.isNotEmpty) {
+      buffer.writeln('📅 **Events**');
+      for (final event in events) {
+        buffer.writeln('• $event');
+      }
+      buffer.writeln();
+    }
+    
+    // Tasks section
+    if (tasks.isNotEmpty) {
+      buffer.writeln('✅ **Tasks**');
+      for (final task in tasks) {
+        buffer.writeln('$task');
+      }
+    }
+    
+    if (buffer.isEmpty) {
+      return 'No events or tasks for today';
+    }
+    
+    return buffer.toString();
+  }
+
+  /// Create a more detailed widget content with structured layout
+  static String _createStructuredWidgetContent(String content) {
+    final events = _extractEvents(content);
+    final tasks = _extractTodos(content);
+    
+    final buffer = StringBuffer();
+    
+    // Events section with icon and styling
+    if (events.isNotEmpty) {
+      buffer.writeln('🕐 Events');
+      for (final event in events) {
+        buffer.writeln('  • $event');
+      }
+      buffer.writeln();
+    }
+    
+    // Tasks section with icon and styling
+    if (tasks.isNotEmpty) {
+      buffer.writeln('📋 Tasks');
+      for (final task in tasks) {
+        buffer.writeln('  $task');
+      }
+    }
+    
+    if (buffer.isEmpty) {
+      return 'No events or tasks for today';
+    }
+    
+    return buffer.toString();
+  }
+
+  /// Format notes for widget display
+  static String _formatNotesForWidget(List<NoteFile> notes) {
+    if (notes.isEmpty) {
+      return 'No recent notes';
+    }
+    
+    final buffer = StringBuffer();
+    
+    for (int i = 0; i < notes.length && i < 3; i++) {
+      final note = notes[i];
+      final displayName = note.displayName;
+      final preview = note.content.length > 30 
+          ? '${note.content.substring(0, 30)}...'
+          : note.content;
+      
+      if (i > 0) buffer.writeln();
+      buffer.write('• $displayName');
+      if (preview.isNotEmpty) {
+        buffer.writeln();
+        buffer.write('  $preview');
+      }
+    }
+    
+    return buffer.toString();
+  }
+
+  /// Format notes with markdown for widget display
+  static String _formatNotesWithMarkdown(List<NoteFile> notes) {
+    if (notes.isEmpty) {
+      return 'No recent notes';
+    }
+    
+    final buffer = StringBuffer();
+    
+    for (int i = 0; i < notes.length && i < 3; i++) {
+      final note = notes[i];
+      final displayName = note.displayName;
+      
+      if (i > 0) buffer.writeln();
+      buffer.writeln('**$displayName**');
+      
+      // Get first few lines of content, preserving markdown
+      final lines = note.content.split('\n');
+      final maxLines = 4;
+      for (int j = 0; j < lines.length && j < maxLines; j++) {
+        final line = lines[j].trim();
+        if (line.isNotEmpty) {
+          buffer.writeln(line);
+        }
+      }
+      
+      if (lines.length > maxLines) {
+        buffer.writeln('...');
+      }
+    }
+    
+    return buffer.toString();
+  }
+
+  /// Update widget theme only
+  static Future<void> updateWidgetTheme(bool isDarkTheme) async {
+    try {
+      // Save theme preference
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('flutter.widget_dark_theme', isDarkTheme);
+      
+      // Force widget update by updating the widget data
+      await HomeWidget.saveWidgetData('widget_theme_updated', DateTime.now().millisecondsSinceEpoch.toString());
+      
+      // Update widget to refresh with new theme
+      await HomeWidget.updateWidget(
+        name: _widgetName,
+        androidName: 'PlanovaWidgetProvider',
+      );
+      
+      print('📱 WidgetService: Updated widget theme to ${isDarkTheme ? 'dark' : 'light'}');
+    } catch (e) {
+      print('❌ WidgetService: Error updating widget theme: $e');
+    }
+  }
+
+  /// Update widget transparency only
+  static Future<void> updateWidgetTransparency(double transparency) async {
+    try {
+      // Save transparency preference
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('flutter.widget_transparency', transparency);
+      
+      // Force widget update by updating the widget data
+      await HomeWidget.saveWidgetData('widget_transparency_updated', DateTime.now().millisecondsSinceEpoch.toString());
+      
+      // Update widget to refresh with new transparency
+      await HomeWidget.updateWidget(
+        name: _widgetName,
+        androidName: 'PlanovaWidgetProvider',
+      );
+      
+      print('📱 WidgetService: Updated widget transparency to ${(transparency * 100).round()}%');
+    } catch (e) {
+      print('❌ WidgetService: Error updating widget transparency: $e');
+    }
+  }
+
+  /// Clear widget data
+  static Future<void> clearWidget() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_dailyContentKey);
+      await prefs.remove(_notesContentKey);
+      await prefs.remove(_dateKey);
+      
+      await HomeWidget.updateWidget(
+        name: _widgetName,
+        androidName: 'PlanovaWidgetProvider',
+      );
+      
+      print('📱 WidgetService: Cleared widget data');
+    } catch (e) {
+      print('❌ WidgetService: Error clearing widget: $e');
+    }
+  }
+
+  /// Dispose widget resources
+  static Future<void> dispose() async {
+    try {
+      // Clear widget data
+      await clearWidget();
+      print('📱 WidgetService: Disposed widget resources');
+    } catch (e) {
+      print('❌ WidgetService: Error disposing widget: $e');
+    }
+  }
+}

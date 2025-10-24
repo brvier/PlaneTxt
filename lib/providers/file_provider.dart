@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/daily_file.dart';
 import '../models/note_file.dart';
 import '../models/calendar_event.dart';
+import '../services/widget_service.dart';
 import 'theme_provider.dart';
 
 class FileProvider extends ChangeNotifier {
@@ -92,6 +94,10 @@ class FileProvider extends ChangeNotifier {
 
       await loadDailyFiles();
       await loadNoteFiles();
+      
+      // Update widget with today's content
+      await _updateWidget(context);
+      
       print('📁 FileProvider: Directory initialization completed successfully');
       notifyListeners();
     } catch (e) {
@@ -117,6 +123,10 @@ class FileProvider extends ChangeNotifier {
       
       await loadDailyFiles();
       await loadNoteFiles();
+      
+      // Update widget with today's content
+      await _updateWidget(context);
+      
       print('📁 FileProvider: Fallback initialization completed');
       notifyListeners();
     }
@@ -143,6 +153,10 @@ class FileProvider extends ChangeNotifier {
     }
 
     _dailyFiles.sort((a, b) => b.date.compareTo(a.date));
+    
+    // Update widget with today's content
+    await _updateWidget();
+    
     notifyListeners();
   }
 
@@ -209,6 +223,9 @@ class FileProvider extends ChangeNotifier {
       _dailyFiles.sort((a, b) => b.date.compareTo(a.date));
     }
 
+    // Update widget with today's content
+    await _updateWidget();
+
     notifyListeners();
   }
 
@@ -243,6 +260,9 @@ class FileProvider extends ChangeNotifier {
     // Re-sort by modification date after adding/updating
     _noteFiles.sort((a, b) => b.lastModified.compareTo(a.lastModified));
     print('📁 FileProvider: Note saved and sorted by modification date');
+
+    // Update widget with recent notes
+    await _updateWidget();
 
     notifyListeners();
   }
@@ -286,6 +306,10 @@ class FileProvider extends ChangeNotifier {
         // Re-sort by modification date after renaming
         _noteFiles.sort((a, b) => b.lastModified.compareTo(a.lastModified));
         print('📁 FileProvider: Note renamed and sorted by modification date');
+        
+        // Update widget with recent notes
+        await _updateWidget();
+        
         notifyListeners();
         return true;
       }
@@ -415,5 +439,65 @@ class FileProvider extends ChangeNotifier {
 
   bool hasCalendarEvents(String date) {
     return getCalendarEvents(date).isNotEmpty;
+  }
+
+  /// Update widget with today's daily file and recent notes
+  Future<void> _updateWidget([BuildContext? context]) async {
+    try {
+      // Only update widget if we have initialized directories
+      if (_orgDirectory == null) {
+        print('📱 FileProvider: Skipping widget update - directories not initialized');
+        return;
+      }
+
+      // Get today's daily file
+      final todayDate = getTodayDate();
+      final todayDailyFile = getDailyFile(todayDate);
+      
+      // Get widget theme and transparency preferences
+      bool isDarkTheme = false;
+      double transparency = 1.0;
+      if (context != null) {
+        // Try to get from ThemeProvider first
+        try {
+          final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+          isDarkTheme = themeProvider.widgetDarkTheme;
+          transparency = themeProvider.widgetTransparency;
+        } catch (e) {
+          print('📱 FileProvider: Could not access ThemeProvider, falling back to SharedPreferences');
+          // Fall back to SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          isDarkTheme = prefs.getBool('flutter.widget_dark_theme') ?? false;
+          transparency = prefs.getDouble('flutter.widget_transparency') ?? 1.0;
+        }
+      } else {
+        // No context available, get from SharedPreferences directly
+        final prefs = await SharedPreferences.getInstance();
+        isDarkTheme = prefs.getBool('flutter.widget_dark_theme') ?? false;
+        transparency = prefs.getDouble('flutter.widget_transparency') ?? 1.0;
+      }
+      
+      print('📱 FileProvider: Updating widget with dark theme: $isDarkTheme, transparency: ${(transparency * 100).round()}%');
+      
+      // Update widget with today's daily content
+      if (todayDailyFile != null) {
+        await WidgetService.updateWithDailyFile(todayDailyFile, isDarkTheme: isDarkTheme, transparency: transparency);
+      }
+      
+      // Update widget with recent notes
+      await WidgetService.updateWithNotes(_noteFiles, isDarkTheme: isDarkTheme, transparency: transparency);
+      
+      print('📱 FileProvider: Widget updated successfully');
+    } catch (e) {
+      print('❌ FileProvider: Error updating widget: $e');
+    }
+  }
+
+  /// Dispose resources
+  @override
+  void dispose() {
+    // Clean up widget resources
+    WidgetService.dispose();
+    super.dispose();
   }
 }

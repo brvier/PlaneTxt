@@ -32,6 +32,41 @@ class PreferencesScreen extends StatelessWidget {
                   );
                 },
               ),
+              Consumer<ThemeProvider>(
+                builder: (context, themeProvider, child) {
+                  return SwitchListTile(
+                    secondary: const Icon(Icons.widgets),
+                    title: const Text('Widget Dark Theme'),
+                    subtitle: const Text('Use dark theme for home screen widget'),
+                    value: themeProvider.widgetDarkTheme,
+                    onChanged: (value) {
+                      themeProvider.setWidgetTheme(value);
+                    },
+                  );
+                },
+              ),
+              Consumer<ThemeProvider>(
+                builder: (context, themeProvider, child) {
+                  return ListTile(
+                    leading: const Icon(Icons.opacity),
+                    title: const Text('Widget Transparency'),
+                    subtitle: Text('${(themeProvider.widgetTransparency * 100).round()}% opaque'),
+                    trailing: SizedBox(
+                      width: 200,
+                      child: Slider(
+                        value: themeProvider.widgetTransparency,
+                        min: 0.1,
+                        max: 1.0,
+                        divisions: 9,
+                        label: '${(themeProvider.widgetTransparency * 100).round()}%',
+                        onChanged: (value) {
+                          themeProvider.setWidgetTransparency(value);
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
 

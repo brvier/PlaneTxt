@@ -3,8 +3,14 @@ import 'package:provider/provider.dart';
 import 'screens/main_screen.dart';
 import 'providers/theme_provider.dart';
 import 'providers/file_provider.dart';
+import 'services/widget_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize widget service
+  await WidgetService.initialize();
+  
   runApp(const PlanovaApp());
 }
 
@@ -20,6 +26,17 @@ class PlanovaApp extends StatelessWidget {
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
+          if (!themeProvider.isInitialized) {
+            return const MaterialApp(
+              home: Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              debugShowCheckedModeBanner: false,
+            );
+          }
+          
           return MaterialApp(
             title: 'Planova',
             theme: themeProvider.lightTheme,

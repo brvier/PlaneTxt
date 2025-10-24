@@ -21,17 +21,17 @@ By using a more structured yet flexible approach with dailies Markdown files ins
 
 ## Roadmap
 
-- [ ] Main View
-  - [ ] Display a month calendar with in a scrollview and below the content markdown of the current selected day
-  - [ ] Editable content
-  - [ ] Check/Uncheck todo on double click/tap
-- [ ] Notes View : A list view of all notes
-  - [ ] Add note button
-  - [ ] Rename a note
+- [x] Main View
+  - [x] Display a month calendar with in a scrollview and below the content markdown of the current selected day
+  - [x] Editable content
+  - [x] Check/Uncheck todo on double click/tap
+- [x] Notes View : A list view of all notes
+  - [x] Add note button
+  - [x] Rename a note
   - [ ] Archive a note
   - [ ] folding notes sub folder
-  - [ ] search
+  - [x] search
   - [ ] Share a note 
-- [ ] Implement preferences screen
-  - [ ] theme selection
+- [x] Implement preferences screen
+  - [x] theme selection
 - [ ] Receive android intent

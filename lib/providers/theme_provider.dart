@@ -1,24 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/widget_service.dart';
+import '../models/daily_file.dart';
 
 class ThemeProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   String? _customStoragePath;
   String _dailyTemplate = '';
+  bool _widgetDarkTheme = false;
+  double _widgetTransparency = 1.0; // 1.0 = fully opaque, 0.0 = fully transparent
   static const String _themeKey = 'theme_mode';
   static const String _storagePathKey = 'storage_path';
   static const String _templateKey = 'daily_template';
+  static const String _widgetThemeKey = 'flutter.widget_dark_theme';
+  static const String _widgetTransparencyKey = 'flutter.widget_transparency';
 
   ThemeMode get themeMode => _themeMode;
   String? get customStoragePath => _customStoragePath;
   String get dailyTemplate => _dailyTemplate;
+  bool get widgetDarkTheme => _widgetDarkTheme;
+  double get widgetTransparency => _widgetTransparency;
+
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
 
   ThemeProvider() {
     print('🚀 ThemeProvider: Constructor called');
-    _loadTheme();
-    _loadStoragePath();
-    _loadTemplate();
-    print('🚀 ThemeProvider: Constructor completed (async methods started)');
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    await Future.wait([
+      _loadTheme(),
+      _loadStoragePath(),
+      _loadTemplate(),
+      _loadWidgetTheme(),
+      _loadWidgetTransparency(),
+    ]);
+    _isInitialized = true;
+    print('🚀 ThemeProvider: Initialization completed');
   }
 
   Future<void> _loadTheme() async {
@@ -40,6 +60,18 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> _loadTemplate() async {
     final prefs = await SharedPreferences.getInstance();
     _dailyTemplate = prefs.getString(_templateKey) ?? _getDefaultTemplate();
+    notifyListeners();
+  }
+
+  Future<void> _loadWidgetTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    _widgetDarkTheme = prefs.getBool(_widgetThemeKey) ?? false;
+    notifyListeners();
+  }
+
+  Future<void> _loadWidgetTransparency() async {
+    final prefs = await SharedPreferences.getInstance();
+    _widgetTransparency = prefs.getDouble(_widgetTransparencyKey) ?? 1.0;
     notifyListeners();
   }
 
@@ -82,6 +114,26 @@ class ThemeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_templateKey, template);
     notifyListeners();
+  }
+
+  Future<void> setWidgetTheme(bool isDark) async {
+    _widgetDarkTheme = isDark;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_widgetThemeKey, isDark);
+    notifyListeners();
+    
+    // Update widget with new theme
+    await _updateWidgetWithNewTheme(isDark);
+  }
+
+  Future<void> setWidgetTransparency(double transparency) async {
+    _widgetTransparency = transparency.clamp(0.0, 1.0);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_widgetTransparencyKey, _widgetTransparency);
+    notifyListeners();
+    
+    // Update widget with new transparency
+    await _updateWidgetWithNewTransparency(_widgetTransparency);
   }
 
   String getDisplayStoragePath() {
@@ -162,5 +214,31 @@ class ThemeProvider extends ChangeNotifier {
         foregroundColor: Color(0xFFEBDBB2), // fg0
       ),
     );
+  }
+
+  /// Update widget with new theme
+  Future<void> _updateWidgetWithNewTheme(bool isDarkTheme) async {
+    try {
+      // Get today's daily file to update widget
+      final today = DateTime.now();
+      final dateString = '${today.year}${today.month.toString().padLeft(2, '0')}${today.day.toString().padLeft(2, '0')}';
+      
+      // We need to get the daily file content, but we don't have access to FileProvider here
+      // So we'll just update the widget with the theme preference
+      // The widget will use the existing content with the new theme
+      await WidgetService.updateWidgetTheme(isDarkTheme);
+    } catch (e) {
+      print('❌ ThemeProvider: Error updating widget with new theme: $e');
+    }
+  }
+
+  /// Update widget with new transparency
+  Future<void> _updateWidgetWithNewTransparency(double transparency) async {
+    try {
+      // Update widget with new transparency
+      await WidgetService.updateWidgetTransparency(transparency);
+    } catch (e) {
+      print('❌ ThemeProvider: Error updating widget with new transparency: $e');
+    }
   }
 }

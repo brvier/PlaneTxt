@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/widget_service.dart';
-import '../models/daily_file.dart';
+import '../themes/app_themes.dart';
 
 class ThemeProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
+  AppTheme _appTheme = AppTheme.gruvbox;
   String? _customStoragePath;
   String _dailyTemplate = '';
   bool _widgetDarkTheme = false;
   double _widgetTransparency = 1.0; // 1.0 = fully opaque, 0.0 = fully transparent
   static const String _themeKey = 'theme_mode';
+  static const String _appThemeKey = 'app_theme';
   static const String _storagePathKey = 'storage_path';
   static const String _templateKey = 'daily_template';
   static const String _widgetThemeKey = 'flutter.widget_dark_theme';
   static const String _widgetTransparencyKey = 'flutter.widget_transparency';
 
   ThemeMode get themeMode => _themeMode;
+  AppTheme get appTheme => _appTheme;
   String? get customStoragePath => _customStoragePath;
   String get dailyTemplate => _dailyTemplate;
   bool get widgetDarkTheme => _widgetDarkTheme;
@@ -32,6 +35,7 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> _initialize() async {
     await Future.wait([
       _loadTheme(),
+      _loadAppTheme(),
       _loadStoragePath(),
       _loadTemplate(),
       _loadWidgetTheme(),
@@ -45,6 +49,13 @@ class ThemeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final themeIndex = prefs.getInt(_themeKey) ?? 0;
     _themeMode = ThemeMode.values[themeIndex];
+    notifyListeners();
+  }
+
+  Future<void> _loadAppTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final themeIndex = prefs.getInt(_appThemeKey) ?? AppTheme.gruvbox.index;
+    _appTheme = AppTheme.values[themeIndex];
     notifyListeners();
   }
 
@@ -90,6 +101,13 @@ class ThemeProvider extends ChangeNotifier {
     _themeMode = mode;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_themeKey, mode.index);
+    notifyListeners();
+  }
+
+  Future<void> setAppTheme(AppTheme theme) async {
+    _appTheme = theme;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_appThemeKey, theme.index);
     notifyListeners();
   }
 
@@ -157,63 +175,11 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   ThemeData get lightTheme {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: const ColorScheme.light(
-        // Gruvbox Light colors
-        primary: Color(0xFF458588), // blue
-        onPrimary: Color(0xFFFFFFFF), // white for better contrast
-        secondary: Color(0xFF689D6A), // green
-        onSecondary: Color(0xFFFFFFFF), // white for better contrast
-        tertiary: Color(0xFFB16286), // purple
-        onTertiary: Color(0xFFFFFFFF), // white for better contrast
-        error: Color(0xFFCC241D), // red
-        onError: Color(0xFFFFFFFF), // white for better contrast
-        surface: Color(0xFFFBF1C7), // bg0
-        onSurface: Color(0xFF3C3836), // fg0
-        surfaceContainerHighest: Color(0xFFF2E5BC), // bg1
-        onSurfaceVariant: Color(0xFF665C54), // fg1
-        outline: Color(0xFF928374), // gray
-        background: Color(0xFFFBF1C7), // bg0
-        onBackground: Color(0xFF3C3836), // fg0
-      ),
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Color(0xFFF2E5BC), // bg1
-        foregroundColor: Color(0xFF3C3836), // fg0
-      ),
-    );
+    return AppThemes.getTheme(_appTheme).lightTheme;
   }
 
   ThemeData get darkTheme {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: const ColorScheme.dark(
-        // Gruvbox Dark colors
-        primary: Color(0xFF83A598), // blue
-        onPrimary: Color(0xFF000000), // black for better contrast
-        secondary: Color(0xFFB8BB26), // green
-        onSecondary: Color(0xFF000000), // black for better contrast
-        tertiary: Color(0xFFD3869B), // purple
-        onTertiary: Color(0xFF000000), // black for better contrast
-        error: Color(0xFFFB4934), // red
-        onError: Color(0xFF000000), // black for better contrast
-        surface: Color(0xFF282828), // bg0
-        onSurface: Color(0xFFEBDBB2), // fg0
-        surfaceContainerHighest: Color(0xFF3C3836), // bg1
-        onSurfaceVariant: Color(0xFFA89984), // fg1
-        outline: Color(0xFF928374), // gray
-        background: Color(0xFF282828), // bg0
-        onBackground: Color(0xFFEBDBB2), // fg0
-      ),
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Color(0xFF3C3836), // bg1
-        foregroundColor: Color(0xFFEBDBB2), // fg0
-      ),
-    );
+    return AppThemes.getTheme(_appTheme).darkTheme;
   }
 
   /// Update widget with new theme

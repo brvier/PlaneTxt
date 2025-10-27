@@ -7,6 +7,7 @@ import 'dart:io';
 import '../providers/theme_provider.dart';
 import '../providers/file_provider.dart';
 import '../utils/permission_helper.dart';
+import '../widgets/theme_selector.dart';
 
 class PreferencesScreen extends StatelessWidget {
   const PreferencesScreen({super.key});
@@ -24,14 +25,15 @@ class PreferencesScreen extends StatelessWidget {
               Consumer<ThemeProvider>(
                 builder: (context, themeProvider, child) {
                   return ListTile(
-                    leading: const Icon(Icons.palette),
-                    title: const Text('Theme'),
+                    leading: const Icon(Icons.brightness_6),
+                    title: const Text('Theme Mode'),
                     subtitle: Text(_getThemeModeText(themeProvider.themeMode)),
                     trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () => _showThemeDialog(context, themeProvider),
                   );
                 },
               ),
+              const ThemeSelector(),
               Consumer<ThemeProvider>(
                 builder: (context, themeProvider, child) {
                   return SwitchListTile(

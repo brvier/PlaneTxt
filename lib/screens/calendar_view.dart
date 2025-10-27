@@ -149,15 +149,9 @@ class _CalendarViewState extends State<CalendarView> {
             ),
             IconButton(
               onPressed: () =>
-                  _showRefileDialog(context, fileProvider, dateString),
-              icon: const Icon(Icons.move_to_inbox),
-              tooltip: 'Refile items to another day',
-            ),
-            IconButton(
-              onPressed: () =>
                   _showRefillDialog(context, fileProvider, dateString),
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refill undone todos until today',
+              tooltip: 'Refill undone todos to this day',
             ),
           ],
         ),
@@ -573,7 +567,8 @@ class _CalendarViewState extends State<CalendarView> {
     return notes;
   }
 
-  void _showRefileDialog(
+  // Removed refile functionality - now handled by refill
+  void _showRefileDialog_removed(
       BuildContext context, FileProvider fileProvider, String currentDate) {
     final dailyFile = fileProvider.getDailyFile(currentDate);
     if (dailyFile == null || dailyFile.content.isEmpty) {
@@ -602,13 +597,13 @@ class _CalendarViewState extends State<CalendarView> {
         tasks: tasks,
         notes: notes,
         onRefile: (targetDate, items) {
-          _performRefile(context, fileProvider, currentDate, targetDate, items);
+          _performRefile_removed(context, fileProvider, currentDate, targetDate, items);
         },
       ),
     );
   }
 
-  void _performRefile(BuildContext context, FileProvider fileProvider,
+  void _performRefile_removed(BuildContext context, FileProvider fileProvider,
       String currentDate, String targetDate, List<RefileItem> items) {
     final dailyFile = fileProvider.getDailyFile(currentDate);
     if (dailyFile == null) return;
@@ -671,24 +666,14 @@ class _CalendarViewState extends State<CalendarView> {
 
   void _showRefillDialog(
       BuildContext context, FileProvider fileProvider, String currentDate) {
-    final today = DateTime.now();
     final currentDateTime = _parseDateFromString(currentDate);
 
-    // Only show refill if current date is today
-    if (!isSameDay(currentDateTime, today)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Refill is only available for today')),
-      );
-      return;
-    }
-
-    // Collect all undone todos from previous days
+    // Collect all undone todos from previous days up to the selected date
     final undoneTodos = <RefillTodo>[];
-    final todayDateString = _formatDate(today);
 
-    // Check the last 30 days for undone todos
+    // Check the last 30 days for undone todos, but only up to the selected date
     for (int i = 1; i <= 30; i++) {
-      final checkDate = today.subtract(Duration(days: i));
+      final checkDate = currentDateTime.subtract(Duration(days: i));
       final checkDateString = _formatDate(checkDate);
       final dailyFile = fileProvider.getDailyFile(checkDateString);
 
@@ -719,24 +704,23 @@ class _CalendarViewState extends State<CalendarView> {
       builder: (context) => _RefillDialog(
         undoneTodos: undoneTodos,
         onRefill: (selectedTodos) {
-          _performRefill(context, fileProvider, selectedTodos);
+          _performRefill(context, fileProvider, selectedTodos, currentDate);
         },
       ),
     );
   }
 
   void _performRefill(BuildContext context, FileProvider fileProvider,
-      List<RefillTodo> selectedTodos) {
-    final today = DateTime.now();
-    final todayDateString = _formatDate(today);
+      List<RefillTodo> selectedTodos, String targetDate) {
+    final targetDateString = targetDate;
 
-    // Get today's content
-    final todayDailyFile = fileProvider.getDailyFile(todayDateString);
-    String todayContent = todayDailyFile?.content ?? '';
+    // Get target date's content
+    final targetDailyFile = fileProvider.getDailyFile(targetDateString);
+    String targetContent = targetDailyFile?.content ?? '';
 
-    // Add todos to today
-    if (todayContent.isNotEmpty && !todayContent.endsWith('\n')) {
-      todayContent += '\n';
+    // Add todos to target date
+    if (targetContent.isNotEmpty && !targetContent.endsWith('\n')) {
+      targetContent += '\n';
     }
 
     // Group todos by source date for removal
@@ -767,10 +751,10 @@ class _CalendarViewState extends State<CalendarView> {
 
     // Add todos to today
     for (final todo in selectedTodos) {
-      todayContent += todo.content + '\n';
+      targetContent += todo.content + '\n';
     }
 
-    fileProvider.saveDailyFile(todayDateString, todayContent);
+    fileProvider.saveDailyFile(targetDateString, targetContent);
 
     // Refresh the UI
     setState(() {});
@@ -779,7 +763,7 @@ class _CalendarViewState extends State<CalendarView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
-                'Refilled ${selectedTodos.length} undone todo(s) to today')),
+                'Refilled ${selectedTodos.length} undone todo(s) to ${_formatDisplayDate(_parseDateFromString(targetDateString))}')),
       );
     }
   }
@@ -1021,7 +1005,7 @@ class _RefillDialogState extends State<_RefillDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Refill Undone Todos'),
+      title: const Text('Refill Undone Todos to Selected Day'),
       content: SizedBox(
         width: double.maxFinite,
         height: 400,
@@ -1099,7 +1083,7 @@ class _RefillDialogState extends State<_RefillDialog> {
               Navigator.of(context).pop();
             }
           },
-          child: const Text('Refill to Today'),
+          child: const Text('Refill to Selected Day'),
         ),
       ],
     );

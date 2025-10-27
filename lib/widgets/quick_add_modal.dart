@@ -131,11 +131,6 @@ class _QuickAddModalState extends State<QuickAddModal> {
             const SizedBox(height: 24),
 
             // Title input
-            Text(
-              'Title',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
             TextField(
               controller: _titleController,
               decoration: const InputDecoration(
@@ -148,11 +143,6 @@ class _QuickAddModalState extends State<QuickAddModal> {
 
             // Time selection (only for events)
             if (_selectedType == QuickAddType.event) ...[
-              Text(
-                'Time',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(

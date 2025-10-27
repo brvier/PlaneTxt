@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Planova
+Comment=A future proof opinionated software to manage your life in plaintext
+Exec=planova
+Icon=planova
+Terminal=false
+Categories=Office;Productivity;
+StartupWMClass=planova

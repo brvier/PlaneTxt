@@ -21,6 +21,8 @@ dependencies:
   permission_handler: ^11.3.0
   device_info_plus: ^10.1.0
   home_widget: ^0.8.1
+  flutter_local_notifications: ^17.2.2
+  timezone: ^0.9.2
 
 dev_dependencies:
   flutter_test:

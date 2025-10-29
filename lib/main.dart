@@ -4,12 +4,18 @@ import 'screens/main_screen.dart';
 import 'providers/theme_provider.dart';
 import 'providers/file_provider.dart';
 import 'services/widget_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize widget service
   await WidgetService.initialize();
+  
+  // Initialize notification service
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+  await notificationService.requestPermissions();
   
   runApp(const PlanovaApp());
 }

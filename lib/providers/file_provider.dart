@@ -7,6 +7,8 @@ import '../models/daily_file.dart';
 import '../models/note_file.dart';
 import '../models/calendar_event.dart';
 import '../services/widget_service.dart';
+import '../services/notification_service.dart';
+import '../services/file_monitor_service.dart';
 import 'theme_provider.dart';
 
 class FileProvider extends ChangeNotifier {
@@ -94,6 +96,9 @@ class FileProvider extends ChangeNotifier {
 
       await loadDailyFiles();
       await loadNoteFiles();
+      
+      // Initialize file monitoring for external changes
+      await FileMonitorService().initialize(_dailiesDirectory!);
       
       // Update widget with today's content
       await _updateWidget(context);
@@ -225,6 +230,9 @@ class FileProvider extends ChangeNotifier {
 
     // Update widget with today's content
     await _updateWidget();
+
+    // Schedule notifications for events
+    await _scheduleEventNotifications(date, content);
 
     notifyListeners();
   }
@@ -397,7 +405,7 @@ class FileProvider extends ChangeNotifier {
         final title = line.replaceAll(RegExp(r'@\d{1,2}:\d{2}'), '').trim();
         
         // Look for description in the next few lines (until next time marker or empty line)
-        final description = _extractEventDescription(lines, i);
+        final description = _extractEventDescriptionFromContent(lines, i);
         
         events.add(CalendarEvent(
           title: title,
@@ -493,11 +501,104 @@ class FileProvider extends ChangeNotifier {
     }
   }
 
+  /// Schedule notifications for events in the given content
+  Future<void> _scheduleEventNotifications(String date, String content) async {
+    try {
+      final notificationService = NotificationService();
+      await notificationService.initialize();
+      
+      // Parse events from the content
+      final events = _parseEventsFromContent(date, content);
+      
+      // Cancel existing notifications for this date first
+      for (final event in events) {
+        final eventId = NotificationService.generateEventId(event.displayTitle, event.time);
+        await notificationService.cancelNotification(eventId);
+      }
+      
+      // Schedule new notifications
+      for (final event in events) {
+        final eventId = NotificationService.generateEventId(event.displayTitle, event.time);
+        await notificationService.scheduleEventNotification(
+          id: eventId,
+          title: event.displayTitle,
+          description: event.description,
+          eventDateTime: event.time,
+        );
+      }
+      
+      print('📅 Scheduled ${events.length} event notifications for $date');
+    } catch (e) {
+      print('❌ Error scheduling event notifications: $e');
+    }
+  }
+
+  /// Parse events from content string
+  List<CalendarEvent> _parseEventsFromContent(String date, String content) {
+    final events = <CalendarEvent>[];
+    final lines = content.split('\n');
+    
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final timeMatch = RegExp(r'@(\d{1,2}):(\d{2})').firstMatch(line);
+      
+      if (timeMatch != null) {
+        final hour = int.parse(timeMatch.group(1)!);
+        final minute = int.parse(timeMatch.group(2)!);
+        
+        // Parse date from YYYYMMDD format
+        final year = int.parse(date.substring(0, 4));
+        final month = int.parse(date.substring(4, 6));
+        final day = int.parse(date.substring(6, 8));
+        
+        final eventTime = DateTime(year, month, day, hour, minute);
+        final title = line.trim();
+        final description = _extractEventDescriptionFromContent(lines, i);
+        
+        events.add(CalendarEvent(
+          title: title,
+          time: eventTime,
+          description: description,
+          date: date,
+        ));
+      }
+    }
+    
+    return events;
+  }
+
+  /// Extract event description from following lines
+  String _extractEventDescriptionFromContent(List<String> lines, int eventLineIndex) {
+    final description = StringBuffer();
+    
+    // Look for description in the next few lines
+    for (int i = eventLineIndex + 1; i < lines.length && i < eventLineIndex + 5; i++) {
+      final line = lines[i].trim();
+      
+      // Stop if we hit another event, task, or empty line
+      if (line.isEmpty || 
+          RegExp(r'@\d{1,2}:\d{2}').hasMatch(line) ||
+          RegExp(r'^\s*[-*]\s*\[[ x]\]').hasMatch(line)) {
+        break;
+      }
+      
+      // Add non-empty lines to description
+      if (line.isNotEmpty) {
+        if (description.isNotEmpty) description.write('\n');
+        description.write(line);
+      }
+    }
+    
+    return description.toString();
+  }
+
   /// Dispose resources
   @override
   void dispose() {
     // Clean up widget resources
     WidgetService.dispose();
+    // Clean up file monitoring
+    FileMonitorService().dispose();
     super.dispose();
   }
 }

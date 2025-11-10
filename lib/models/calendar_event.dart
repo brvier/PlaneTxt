@@ -19,7 +19,10 @@ class CalendarEvent {
 
   String get displayTitle {
     // Remove the @HH:MM part from the title
-    return title.replaceAll(RegExp(r'@\d{2}:\d{2}'), '').trim();
+    String cleaned = title.replaceAll(RegExp(r'@\d{1,2}:\d{2}'), '').trim();
+    // Remove markdown list markers (-, *, +) from the beginning
+    cleaned = cleaned.replaceFirst(RegExp(r'^[-*+]\s+'), '').trim();
+    return cleaned;
   }
 
   CalendarEvent copyWith({

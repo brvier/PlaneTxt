@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:io';
 import '../providers/theme_provider.dart';
 import '../providers/file_provider.dart';
@@ -166,10 +167,18 @@ class PreferencesScreen extends StatelessWidget {
             context,
             title: 'About',
             children: [
-              const ListTile(
-                leading: Icon(Icons.info),
-                title: Text('Version'),
-                subtitle: Text('1.0.0'),
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snapshot) {
+                  final version = snapshot.data?.version ?? 'Unknown';
+                  final buildNumber = snapshot.data?.buildNumber ?? '';
+                  final versionString = buildNumber.isNotEmpty ? '$version+$buildNumber' : version;
+                  return ListTile(
+                    leading: const Icon(Icons.info),
+                    title: const Text('Version'),
+                    subtitle: Text(versionString),
+                  );
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.description),
@@ -490,11 +499,16 @@ class PreferencesScreen extends StatelessWidget {
     context.read<FileProvider>().initializeDirectories(context);
   }
 
-  void _showAboutDialog(BuildContext context) {
+  Future<void> _showAboutDialog(BuildContext context) async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    final version = packageInfo.version;
+    final buildNumber = packageInfo.buildNumber;
+    final versionString = buildNumber.isNotEmpty ? '$version+$buildNumber' : version;
+    
     showAboutDialog(
       context: context,
       applicationName: 'Planova',
-      applicationVersion: '1.0.0',
+      applicationVersion: versionString,
       applicationIcon: const Icon(Icons.calendar_today, size: 48),
       children: [
         const Text(

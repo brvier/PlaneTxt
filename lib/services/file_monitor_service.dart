@@ -12,6 +12,7 @@ class FileMonitorService {
   Directory? _dailiesDirectory;
   Timer? _pollingTimer;
   final Map<String, DateTime> _lastModified = {};
+  int _reviewCounter = 0;
   static const Duration _pollingInterval = Duration(seconds: 5);
 
   Future<void> initialize(Directory dailiesDirectory) async {
@@ -45,12 +46,16 @@ class FileMonitorService {
           .where((entity) => entity is File && entity.path.endsWith('.md'))
           .cast<File>();
       
+      // Track which dates still have files
+      final existingDates = <String>{};
+      
       for (final file in files) {
         final fileName = path.basename(file.path);
         final dateMatch = RegExp(r'(\d{8})\.md$').firstMatch(fileName);
         if (dateMatch == null) continue;
         
         final date = dateMatch.group(1)!;
+        existingDates.add(date);
         final lastModified = file.lastModifiedSync();
         
         // Check if file was modified since last check
@@ -60,6 +65,27 @@ class FileMonitorService {
           await _handleFileChange(date, file.path);
         }
       }
+      
+      // Remove lastModified entries for dates that no longer have files
+      final datesToRemove = _lastModified.keys.where((date) => !existingDates.contains(date)).toList();
+      for (final date in datesToRemove) {
+        _lastModified.remove(date);
+        // Cancel notifications for deleted files
+        final notificationService = NotificationService();
+        await notificationService.initialize();
+        await notificationService.cancelNotificationsForDate(date);
+        print('🗑️  FileMonitorService: Cancelled notifications for deleted date file: $date');
+      }
+      
+      // Periodically review all notifications (every 10 file checks, roughly every 50 seconds)
+      _reviewCounter++;
+      if (_reviewCounter >= 10) {
+        _reviewCounter = 0;
+        final notificationService = NotificationService();
+        await notificationService.initialize();
+        await notificationService.reviewNotifications(_dailiesDirectory!);
+      }
+      
     } catch (e) {
       print('❌ FileMonitorService: Error checking for file changes: $e');
     }
@@ -88,6 +114,11 @@ class FileMonitorService {
     
     try {
       print('📁 FileMonitorService: Scheduling notifications for existing events...');
+      
+      // Review existing notifications first to remove invalid ones
+      final notificationService = NotificationService();
+      await notificationService.initialize();
+      await notificationService.reviewNotifications(_dailiesDirectory!);
       
       final files = _dailiesDirectory!.listSync()
           .where((entity) => entity is File && entity.path.endsWith('.md'))
@@ -123,11 +154,8 @@ class FileMonitorService {
       // Parse events from the content
       final events = _parseEventsFromContent(date, content);
       
-      // Cancel existing notifications for this date first
-      for (final event in events) {
-        final eventId = NotificationService.generateEventId(event.displayTitle, event.time);
-        await notificationService.cancelNotification(eventId);
-      }
+      // Cancel all existing notifications for this date first
+      await notificationService.cancelNotificationsForDate(date);
       
       // Schedule new notifications
       for (final event in events) {
@@ -137,6 +165,7 @@ class FileMonitorService {
           title: event.displayTitle,
           description: event.description,
           eventDateTime: event.time,
+          date: date,
         );
       }
       

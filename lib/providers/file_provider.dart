@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -21,6 +22,8 @@ class FileProvider extends ChangeNotifier {
   List<DailyFile> _dailyFiles = [];
   List<NoteFile> _noteFiles = [];
   String _selectedDate = '';
+  Timer? _widgetUpdateTimer;
+  static const Duration _widgetUpdateInterval = Duration(minutes: 30);
 
   FileProvider() {
     print('🚀 FileProvider: Constructor called');
@@ -103,6 +106,9 @@ class FileProvider extends ChangeNotifier {
       // Update widget with today's content
       await _updateWidget(context);
       
+      // Start periodic widget updates
+      _startWidgetUpdateTimer();
+      
       print('📁 FileProvider: Directory initialization completed successfully');
       notifyListeners();
     } catch (e) {
@@ -131,6 +137,9 @@ class FileProvider extends ChangeNotifier {
       
       // Update widget with today's content
       await _updateWidget(context);
+      
+      // Start periodic widget updates
+      _startWidgetUpdateTimer();
       
       print('📁 FileProvider: Fallback initialization completed');
       notifyListeners();
@@ -510,11 +519,8 @@ class FileProvider extends ChangeNotifier {
       // Parse events from the content
       final events = _parseEventsFromContent(date, content);
       
-      // Cancel existing notifications for this date first
-      for (final event in events) {
-        final eventId = NotificationService.generateEventId(event.displayTitle, event.time);
-        await notificationService.cancelNotification(eventId);
-      }
+    // Cancel all existing notifications for this date first
+    await notificationService.cancelNotificationsForDate(date);
       
       // Schedule new notifications
       for (final event in events) {
@@ -524,6 +530,7 @@ class FileProvider extends ChangeNotifier {
           title: event.displayTitle,
           description: event.description,
           eventDateTime: event.time,
+          date: date,
         );
       }
       
@@ -592,9 +599,59 @@ class FileProvider extends ChangeNotifier {
     return description.toString();
   }
 
+  /// Start periodic widget update timer
+  void _startWidgetUpdateTimer() {
+    _widgetUpdateTimer?.cancel();
+    _widgetUpdateTimer = Timer.periodic(_widgetUpdateInterval, (timer) async {
+      print('📱 FileProvider: Periodic widget update triggered');
+      try {
+        // Reload daily files and notes to get latest content
+        // Note: loadDailyFiles() already calls _updateWidget(), 
+        // but we also need to load notes, so we update once after both loads
+        if (_dailiesDirectory != null) {
+          _dailyFiles.clear();
+          final files = _dailiesDirectory!.listSync()
+              .where((file) => file is File && file.path.endsWith('.md'))
+              .cast<File>();
+
+          for (final file in files) {
+            final content = await file.readAsString();
+            final fileName = file.path.split('/').last;
+            final date = fileName.replaceAll('.md', '');
+            
+            _dailyFiles.add(DailyFile(
+              path: file.path,
+              date: date,
+              content: content,
+            ));
+          }
+
+          _dailyFiles.sort((a, b) => b.date.compareTo(a.date));
+        }
+        
+        if (_notesDirectory != null) {
+          _noteFiles.clear();
+          await _loadNotesRecursively(_notesDirectory!);
+          _noteFiles.sort((a, b) => b.lastModified.compareTo(a.lastModified));
+        }
+        
+        // Update widget once with the reloaded data
+        await _updateWidget();
+        
+        print('📱 FileProvider: Periodic widget update completed');
+      } catch (e) {
+        print('❌ FileProvider: Error in periodic widget update: $e');
+      }
+    });
+    print('📱 FileProvider: Started periodic widget update timer (every 30 minutes)');
+  }
+
   /// Dispose resources
   @override
   void dispose() {
+    // Cancel widget update timer
+    _widgetUpdateTimer?.cancel();
+    _widgetUpdateTimer = null;
     // Clean up widget resources
     WidgetService.dispose();
     // Clean up file monitoring

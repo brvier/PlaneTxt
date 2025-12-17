@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/note_file.dart';
-import 'markdown_editor.dart';
+import 'package:planova/models/note_file.dart';
+import 'package:planova/widgets/markdown_editor.dart';
 
 class NoteEditor extends StatefulWidget {
   final NoteFile note;

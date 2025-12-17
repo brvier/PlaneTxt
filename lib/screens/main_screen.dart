@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:planova/providers/daily_file_provider.dart';
+import 'package:planova/providers/directory_provider.dart';
+import 'package:planova/providers/note_file_provider.dart';
+import 'package:planova/screens/calendar_view.dart';
+import 'package:planova/screens/notes_view.dart';
+import 'package:planova/screens/preferences_screen.dart';
+import 'package:planova/services/file_monitor_service.dart';
+import 'package:planova/utils/logger.dart';
 import 'package:provider/provider.dart';
-import '../providers/file_provider.dart';
-import 'calendar_view.dart';
-import 'notes_view.dart';
-import 'preferences_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -12,7 +16,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
@@ -24,25 +28,69 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeFileProvider();
+      _initializeProviders();
     });
   }
 
-  Future<void> _initializeFileProvider() async {
-    print('🚀 MainScreen: Starting FileProvider initialization...');
-    // Wait a bit to ensure ThemeProvider has loaded its data
-    await Future.delayed(const Duration(milliseconds: 500));
-    print('🚀 MainScreen: Calling FileProvider.initializeDirectories...');
-    await context.read<FileProvider>().initializeDirectories(context);
-    print('🚀 MainScreen: FileProvider initialization completed');
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // Check if date changed while app was in background
+      context.read<DailyFileProvider>().checkDateChangeAndUpdateWidget();
+    }
+  }
+
+  Future<void> _initializeProviders() async {
+    Log.i('🚀 MainScreen: Starting provider initialization...');
+
+    try {
+      // Initialize directories first
+      Log.i('🚀 MainScreen: Initializing DirectoryProvider...');
+      final directoryProvider = context.read<DirectoryProvider>();
+      await directoryProvider.initializeDirectories(context);
+
+      // Start monitoring dailies for external changes
+      final dailiesDirectory = directoryProvider.dailiesDirectory;
+      if (dailiesDirectory != null) {
+        await FileMonitorService().initialize(dailiesDirectory);
+      } else {
+        Log.w(
+            '🚀 MainScreen: Dailies directory not initialized; skipping file monitor');
+      }
+
+      // Initialize daily files
+      Log.i('🚀 MainScreen: Loading daily files...');
+      await context.read<DailyFileProvider>().loadDailyFiles();
+
+      // Initialize notes
+      Log.i('🚀 MainScreen: Loading note files...');
+      await context.read<NoteFileProvider>().loadNoteFiles();
+
+      // Start widget update timers
+      context.read<DailyFileProvider>().startWidgetUpdateTimer();
+      context.read<NoteFileProvider>().startWidgetUpdateTimer();
+
+      Log.i('🚀 MainScreen: All providers initialized successfully');
+    } catch (e) {
+      Log.e('❌ MainScreen: Error initializing providers', e);
+      rethrow;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(0.0),
+        preferredSize: const Size.fromHeight(0.0),
         child: AppBar(),
       ),
       body: _screens[_currentIndex],

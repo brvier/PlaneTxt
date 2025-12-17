@@ -1,14 +1,15 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:io';
-import '../providers/theme_provider.dart';
-import '../providers/file_provider.dart';
-import '../utils/permission_helper.dart';
-import '../widgets/theme_selector.dart';
+
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:planova/providers/directory_provider.dart';
+import 'package:planova/providers/theme_provider.dart';
+import 'package:planova/utils/permission_helper.dart';
+import 'package:planova/widgets/theme_selector.dart';
+import 'package:provider/provider.dart';
 
 class PreferencesScreen extends StatelessWidget {
   const PreferencesScreen({super.key});
@@ -132,6 +133,42 @@ class PreferencesScreen extends StatelessWidget {
 
           const Divider(),
 
+          // Header preferences section
+          _buildSection(
+            context,
+            title: 'Header Preferences',
+            children: [
+              Consumer<ThemeProvider>(
+                builder: (context, themeProvider, child) {
+                  return ListTile(
+                    leading: const Icon(Icons.checklist),
+                    title: const Text('Todo Header Pattern'),
+                    subtitle: Text(themeProvider.todoHeaderRegex.isEmpty
+                        ? 'No pattern set'
+                        : 'Pattern: ${themeProvider.todoHeaderRegex}'),
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () => _showHeaderRegexDialog(context, themeProvider, true),
+                  );
+                },
+              ),
+              Consumer<ThemeProvider>(
+                builder: (context, themeProvider, child) {
+                  return ListTile(
+                    leading: const Icon(Icons.event),
+                    title: const Text('Event Header Pattern'),
+                    subtitle: Text(themeProvider.eventHeaderRegex.isEmpty
+                        ? 'No pattern set'
+                        : 'Pattern: ${themeProvider.eventHeaderRegex}'),
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () => _showHeaderRegexDialog(context, themeProvider, false),
+                  );
+                },
+              ),
+            ],
+          ),
+
+          const Divider(),
+
           // Debug section
           _buildSection(
             context,
@@ -147,12 +184,12 @@ class PreferencesScreen extends StatelessWidget {
                   );
                 },
               ),
-              Consumer<FileProvider>(
-                builder: (context, fileProvider, child) {
+              Consumer<DirectoryProvider>(
+                builder: (context, directoryProvider, child) {
                   return ListTile(
                     leading: const Icon(Icons.info_outline),
                     title: const Text('Actual Storage Path'),
-                    subtitle: Text(fileProvider.getCurrentStoragePath()),
+                    subtitle: Text(directoryProvider.getCurrentStoragePath()),
                     isThreeLine: true,
                   );
                 },
@@ -317,7 +354,7 @@ class PreferencesScreen extends StatelessWidget {
               onTap: () {
                 themeProvider.setStoragePath(null);
                 Navigator.of(context).pop();
-                _reinitializeFileProvider(context);
+                _reinitializeDirectoryProvider(context);
               },
             ),
             ListTile(
@@ -385,7 +422,7 @@ class PreferencesScreen extends StatelessWidget {
         return;
       }
 
-      String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+      final String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
 
       if (selectedDirectory != null && context.mounted) {
         // Use the selected directory directly without creating an Org subfolder
@@ -401,8 +438,8 @@ class PreferencesScreen extends StatelessWidget {
           themeProvider.setStoragePath(selectedDir.path);
           Navigator.of(context).pop();
 
-          // Reinitialize file provider with new location
-          _reinitializeFileProvider(context);
+          // Reinitialize directory provider with new location
+          _reinitializeDirectoryProvider(context);
 
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -481,7 +518,7 @@ class PreferencesScreen extends StatelessWidget {
             onPressed: () {
               themeProvider.setStoragePath(null);
               Navigator.of(context).pop();
-              _reinitializeFileProvider(context);
+              _reinitializeDirectoryProvider(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                     content: Text('Storage location reset to default')),
@@ -494,9 +531,9 @@ class PreferencesScreen extends StatelessWidget {
     );
   }
 
-  void _reinitializeFileProvider(BuildContext context) {
-    // Reinitialize the file provider with the new storage location
-    context.read<FileProvider>().initializeDirectories(context);
+  void _reinitializeDirectoryProvider(BuildContext context) {
+    // Reinitialize the directory provider with the new storage location
+    context.read<DirectoryProvider>().initializeDirectories(context);
   }
 
   Future<void> _showAboutDialog(BuildContext context) async {
@@ -563,6 +600,104 @@ class PreferencesScreen extends StatelessWidget {
             onPressed: () {
               themeProvider.setDailyTemplate(controller.text);
               Navigator.of(context).pop();
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHeaderRegexDialog(BuildContext context, ThemeProvider themeProvider, bool isTodo) {
+    final currentRegex = isTodo ? themeProvider.todoHeaderRegex : themeProvider.eventHeaderRegex;
+    final controller = TextEditingController(text: currentRegex);
+    final title = isTodo ? 'Todo Header Pattern' : 'Event Header Pattern';
+    final description = isTodo
+        ? 'Set a regex pattern to match the header where todos should be inserted. When adding a todo, it will be placed after the first matching header.'
+        : 'Set a regex pattern to match the header where events should be inserted. When adding an event, it will be placed after the first matching header.';
+    final example = isTodo
+        ? r'^##\s+Tasks?' // Matches "## Task" or "## Tasks"
+        : r'^##\s+Events?'; // Matches "## Event" or "## Events"
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                description,
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Example patterns:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '? $example (matches "## Task" or "## Tasks")',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+              const Text(
+                '? ^##\\s+.*[Tt]ask (matches any header containing "task")',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: 'Regex Pattern',
+                  hintText: example,
+                  border: const OutlineInputBorder(),
+                  helperText: 'Use regex syntax. ^ matches start of line.',
+                ),
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final regex = controller.text.trim();
+              // Validate regex
+              try {
+                RegExp(regex);
+                if (isTodo) {
+                  themeProvider.setTodoHeaderRegex(regex);
+                } else {
+                  themeProvider.setEventHeaderRegex(regex);
+                }
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Pattern saved successfully')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Invalid regex pattern: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             child: const Text('Save'),
           ),

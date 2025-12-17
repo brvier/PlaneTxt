@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:planova/models/note_file.dart';
+import 'package:planova/providers/note_file_provider.dart';
+import 'package:planova/widgets/note_editor.dart';
+import 'package:planova/widgets/note_list_item.dart';
 import 'package:provider/provider.dart';
-import '../providers/file_provider.dart';
-import '../models/note_file.dart';
-import '../widgets/note_editor.dart';
-import '../widgets/note_list_item.dart';
 
 class NotesView extends StatefulWidget {
   const NotesView({super.key});
@@ -24,10 +24,10 @@ class _NotesViewState extends State<NotesView> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<FileProvider>(
-      builder: (context, fileProvider, child) {
-        final filteredNotes = _filterNotes(fileProvider.noteFiles);
-        
+    return Consumer<NoteFileProvider>(
+      builder: (context, noteFileProvider, child) {
+        final filteredNotes = _filterNotes(noteFileProvider.noteFiles);
+
         return Column(
           children: [
             // Search bar
@@ -60,7 +60,7 @@ class _NotesViewState extends State<NotesView> {
                 },
               ),
             ),
-            
+
             // Notes list
             Expanded(
               child: filteredNotes.isEmpty
@@ -79,7 +79,7 @@ class _NotesViewState extends State<NotesView> {
                       },
                     ),
             ),
-            
+
             // Add note button
             Padding(
               padding: const EdgeInsets.all(16),
@@ -112,12 +112,12 @@ class _NotesViewState extends State<NotesView> {
           ),
           const SizedBox(height: 8),
           Text(
-            _searchQuery.isEmpty 
+            _searchQuery.isEmpty
                 ? 'Tap the + button to create your first note'
                 : 'Try a different search term',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-            ),
+                  color: Theme.of(context).colorScheme.outline,
+                ),
           ),
         ],
       ),
@@ -126,10 +126,12 @@ class _NotesViewState extends State<NotesView> {
 
   List<NoteFile> _filterNotes(List<NoteFile> notes) {
     if (_searchQuery.isEmpty) return notes;
-    
+
     return notes.where((note) {
-      return note.displayName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-             note.content.toLowerCase().contains(_searchQuery.toLowerCase());
+      return note.displayName
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase()) ||
+          note.content.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
   }
 
@@ -146,10 +148,14 @@ class _NotesViewState extends State<NotesView> {
         builder: (context) => NoteEditor(
           note: note,
           onSave: (content) {
-            context.read<FileProvider>().saveNoteFile(note.relativePath, content);
+            context
+                .read<NoteFileProvider>()
+                .saveNoteFile(note.relativePath, content);
           },
           onAutoSave: (content) {
-            context.read<FileProvider>().saveNoteFile(note.relativePath, content);
+            context
+                .read<NoteFileProvider>()
+                .saveNoteFile(note.relativePath, content);
             // Don't show snackbar for autosave
           },
         ),
@@ -177,7 +183,7 @@ class _NotesViewState extends State<NotesView> {
           ),
           TextButton(
             onPressed: () {
-              // TODO: Implement delete functionality
+              context.read<NoteFileProvider>().deleteNoteFile(note);
               Navigator.of(context).pop();
             },
             child: const Text('Delete'),
@@ -241,14 +247,44 @@ class _AddNoteDialogState extends State<_AddNoteDialog> {
     );
   }
 
+  String _sanitizeName(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '';
+
+    // Prevent path separators in names.
+    final withoutSeparators = trimmed.replaceAll(RegExp(r'[/\\]'), ' ');
+
+    return withoutSeparators
+        .replaceAll(RegExp(r'[^\w\s-]'), '')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), '_');
+  }
+
+  String _sanitizeFolder(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '';
+
+    final parts = trimmed.replaceAll('\\', '/').split('/');
+    final sanitizedParts = <String>[];
+
+    for (final part in parts) {
+      final clean = _sanitizeName(part);
+      if (clean.isEmpty) continue;
+      if (clean == '.' || clean == '..') continue;
+      sanitizedParts.add(clean);
+    }
+
+    return sanitizedParts.join('/');
+  }
+
   void _createNote() {
-    final name = _nameController.text.trim();
+    final name = _sanitizeName(_nameController.text);
     if (name.isEmpty) return;
 
-    final folder = _folderController.text.trim();
+    final folder = _sanitizeFolder(_folderController.text);
     final relativePath = folder.isEmpty ? '$name.md' : '$folder/$name.md';
-    
-    context.read<FileProvider>().saveNoteFile(relativePath, '');
+
+    context.read<NoteFileProvider>().saveNoteFile(relativePath, '');
     Navigator.of(context).pop();
   }
 }
@@ -304,9 +340,10 @@ class _RenameNoteDialogState extends State<_RenameNoteDialog> {
     final newName = _nameController.text.trim();
     if (newName.isEmpty || newName == widget.note.fileName) return;
 
-    final fileProvider = Provider.of<FileProvider>(context, listen: false);
-    final success = await fileProvider.renameNoteFile(widget.note, newName);
-    
+    final noteFileProvider =
+        Provider.of<NoteFileProvider>(context, listen: false);
+    final success = await noteFileProvider.renameNoteFile(widget.note, newName);
+
     if (success) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -315,7 +352,8 @@ class _RenameNoteDialogState extends State<_RenameNoteDialog> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Failed to rename note. A file with that name may already exist.'),
+          content: Text(
+              'Failed to rename note. A file with that name may already exist.'),
           backgroundColor: Colors.red,
         ),
       );

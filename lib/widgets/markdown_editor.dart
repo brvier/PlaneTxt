@@ -1,7 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:async';
-import 'package:intl/intl.dart';
 
 enum EditorMode {
   embedded, // For use within other widgets (like DailyEditor)
@@ -288,7 +288,7 @@ class MarkdownEditorState extends State<MarkdownEditor> {
       // If no todo checkbox, insert a new todo item
       final indentMatch = RegExp(r'^(\s*)').firstMatch(currentLineText);
       final indent = indentMatch?.group(1) ?? '';
-      final newTodo = '${indent}- [ ] ';
+      final newTodo = '$indent- [ ] ';
       
       // Insert at the beginning of the line
       final newLine = newTodo + currentLineText.trim();

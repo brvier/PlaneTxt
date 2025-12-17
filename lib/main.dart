@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:planova/providers/directory_provider.dart';
+import 'package:planova/providers/daily_file_provider.dart';
+import 'package:planova/providers/event_provider.dart';
+import 'package:planova/providers/note_file_provider.dart';
+import 'package:planova/providers/theme_provider.dart';
+import 'package:planova/screens/main_screen.dart';
+import 'package:planova/services/notification_service.dart';
+import 'package:planova/services/widget_service.dart';
 import 'package:provider/provider.dart';
-import 'screens/main_screen.dart';
-import 'providers/theme_provider.dart';
-import 'providers/file_provider.dart';
-import 'services/widget_service.dart';
-import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +31,10 @@ class PlanovaApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => FileProvider()),
+        ChangeNotifierProvider(create: (_) => DirectoryProvider()),
+        ChangeNotifierProvider(create: (_) => DailyFileProvider()),
+        ChangeNotifierProvider(create: (_) => NoteFileProvider()),
+        ChangeNotifierProvider(create: (_) => EventProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/note_file.dart';
+import 'package:planova/models/note_file.dart';
 
 class NoteListItem extends StatelessWidget {
   final NoteFile note;
@@ -94,7 +94,7 @@ class NoteListItem extends StatelessWidget {
     }
     
     // Remove markdown syntax for preview
-    String preview = content
+    final String preview = content
         .replaceAll(RegExp(r'#+\s*'), '') // Remove headers
         .replaceAll(RegExp(r'\*\*(.*?)\*\*'), r'$1') // Remove bold
         .replaceAll(RegExp(r'\*(.*?)\*'), r'$1') // Remove italic

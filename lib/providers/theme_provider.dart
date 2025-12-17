@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:planova/services/widget_service.dart';
+import 'package:planova/themes/app_themes.dart';
+import 'package:planova/utils/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/widget_service.dart';
-import '../themes/app_themes.dart';
 
 class ThemeProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
@@ -9,13 +10,18 @@ class ThemeProvider extends ChangeNotifier {
   String? _customStoragePath;
   String _dailyTemplate = '';
   bool _widgetDarkTheme = false;
-  double _widgetTransparency = 1.0; // 1.0 = fully opaque, 0.0 = fully transparent
+  double _widgetTransparency =
+      1.0; // 1.0 = fully opaque, 0.0 = fully transparent
+  String _todoHeaderRegex = r'^##\s+Tasks?';
+  String _eventHeaderRegex = r'^##\s+Events?';
   static const String _themeKey = 'theme_mode';
   static const String _appThemeKey = 'app_theme';
   static const String _storagePathKey = 'storage_path';
   static const String _templateKey = 'daily_template';
   static const String _widgetThemeKey = 'flutter.widget_dark_theme';
   static const String _widgetTransparencyKey = 'flutter.widget_transparency';
+  static const String _todoHeaderRegexKey = 'todo_header_regex';
+  static const String _eventHeaderRegexKey = 'event_header_regex';
 
   ThemeMode get themeMode => _themeMode;
   AppTheme get appTheme => _appTheme;
@@ -23,12 +29,14 @@ class ThemeProvider extends ChangeNotifier {
   String get dailyTemplate => _dailyTemplate;
   bool get widgetDarkTheme => _widgetDarkTheme;
   double get widgetTransparency => _widgetTransparency;
+  String get todoHeaderRegex => _todoHeaderRegex;
+  String get eventHeaderRegex => _eventHeaderRegex;
 
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
   ThemeProvider() {
-    print('🚀 ThemeProvider: Constructor called');
+    Log.i('🚀 ThemeProvider: Constructor called');
     _initialize();
   }
 
@@ -40,50 +48,59 @@ class ThemeProvider extends ChangeNotifier {
       _loadTemplate(),
       _loadWidgetTheme(),
       _loadWidgetTransparency(),
+      _loadTodoHeaderRegex(),
+      _loadEventHeaderRegex(),
     ]);
+
     _isInitialized = true;
-    print('🚀 ThemeProvider: Initialization completed');
+    Log.i('🚀 ThemeProvider: Initialization completed');
+    notifyListeners();
   }
 
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final themeIndex = prefs.getInt(_themeKey) ?? 0;
     _themeMode = ThemeMode.values[themeIndex];
-    notifyListeners();
   }
 
   Future<void> _loadAppTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final themeIndex = prefs.getInt(_appThemeKey) ?? AppTheme.gruvbox.index;
     _appTheme = AppTheme.values[themeIndex];
-    notifyListeners();
   }
 
   Future<void> _loadStoragePath() async {
-    print('🔍 ThemeProvider: Loading storage path...');
+    Log.d('🔍 ThemeProvider: Loading storage path...');
     final prefs = await SharedPreferences.getInstance();
     _customStoragePath = prefs.getString(_storagePathKey);
-    print('🔍 ThemeProvider: Loaded custom storage path: $_customStoragePath');
-    print('🔍 ThemeProvider: Storage path key: $_storagePathKey');
-    notifyListeners();
+    Log.d('🔍 ThemeProvider: Loaded custom storage path: $_customStoragePath');
+    Log.d('🔍 ThemeProvider: Storage path key: $_storagePathKey');
   }
 
   Future<void> _loadTemplate() async {
     final prefs = await SharedPreferences.getInstance();
     _dailyTemplate = prefs.getString(_templateKey) ?? _getDefaultTemplate();
-    notifyListeners();
   }
 
   Future<void> _loadWidgetTheme() async {
     final prefs = await SharedPreferences.getInstance();
     _widgetDarkTheme = prefs.getBool(_widgetThemeKey) ?? false;
-    notifyListeners();
   }
 
   Future<void> _loadWidgetTransparency() async {
     final prefs = await SharedPreferences.getInstance();
     _widgetTransparency = prefs.getDouble(_widgetTransparencyKey) ?? 1.0;
-    notifyListeners();
+  }
+
+  Future<void> _loadTodoHeaderRegex() async {
+    final prefs = await SharedPreferences.getInstance();
+    _todoHeaderRegex = prefs.getString(_todoHeaderRegexKey) ?? r'^##\s+Tasks?';
+  }
+
+  Future<void> _loadEventHeaderRegex() async {
+    final prefs = await SharedPreferences.getInstance();
+    _eventHeaderRegex =
+        prefs.getString(_eventHeaderRegexKey) ?? r'^##\s+Events?';
   }
 
   String _getDefaultTemplate() {
@@ -112,17 +129,18 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   Future<void> setStoragePath(String? path) async {
-    print('💾 ThemeProvider: Setting storage path to: $path');
+    Log.d('💾 ThemeProvider: Setting storage path to: $path');
     _customStoragePath = path;
     final prefs = await SharedPreferences.getInstance();
     if (path != null) {
-      print('💾 ThemeProvider: Saving path to SharedPreferences with key: $_storagePathKey');
+      Log.d(
+          '💾 ThemeProvider: Saving path to SharedPreferences with key: $_storagePathKey');
       await prefs.setString(_storagePathKey, path);
-      print('💾 ThemeProvider: Path saved successfully');
+      Log.d('💾 ThemeProvider: Path saved successfully');
     } else {
-      print('💾 ThemeProvider: Removing storage path from SharedPreferences');
+      Log.d('💾 ThemeProvider: Removing storage path from SharedPreferences');
       await prefs.remove(_storagePathKey);
-      print('💾 ThemeProvider: Path removed successfully');
+      Log.d('💾 ThemeProvider: Path removed successfully');
     }
     notifyListeners();
   }
@@ -139,7 +157,7 @@ class ThemeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_widgetThemeKey, isDark);
     notifyListeners();
-    
+
     // Update widget with new theme
     await _updateWidgetWithNewTheme(isDark);
   }
@@ -149,9 +167,23 @@ class ThemeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_widgetTransparencyKey, _widgetTransparency);
     notifyListeners();
-    
+
     // Update widget with new transparency
     await _updateWidgetWithNewTransparency(_widgetTransparency);
+  }
+
+  Future<void> setTodoHeaderRegex(String regex) async {
+    _todoHeaderRegex = regex;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_todoHeaderRegexKey, regex);
+    notifyListeners();
+  }
+
+  Future<void> setEventHeaderRegex(String regex) async {
+    _eventHeaderRegex = regex;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_eventHeaderRegexKey, regex);
+    notifyListeners();
   }
 
   String getDisplayStoragePath() {
@@ -164,14 +196,16 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> waitForInitialization() async {
     // Wait for the async initialization to complete
     int attempts = 0;
-    while (attempts < 50) { // Wait up to 5 seconds
+    while (attempts < 50) {
+      // Wait up to 5 seconds
       await Future.delayed(const Duration(milliseconds: 100));
       attempts++;
       // The storage path loading is complete when we've tried to load it
       // We can check if the SharedPreferences loading is done by checking if we have a value or null
       break;
     }
-    print('🔍 ThemeProvider: waitForInitialization completed, customStoragePath: $_customStoragePath');
+    Log.d(
+        '🔍 ThemeProvider: waitForInitialization completed, customStoragePath: $_customStoragePath');
   }
 
   ThemeData get lightTheme {
@@ -185,16 +219,12 @@ class ThemeProvider extends ChangeNotifier {
   /// Update widget with new theme
   Future<void> _updateWidgetWithNewTheme(bool isDarkTheme) async {
     try {
-      // Get today's daily file to update widget
-      final today = DateTime.now();
-      final dateString = '${today.year}${today.month.toString().padLeft(2, '0')}${today.day.toString().padLeft(2, '0')}';
-      
       // We need to get the daily file content, but we don't have access to FileProvider here
       // So we'll just update the widget with the theme preference
       // The widget will use the existing content with the new theme
       await WidgetService.updateWidgetTheme(isDarkTheme);
     } catch (e) {
-      print('❌ ThemeProvider: Error updating widget with new theme: $e');
+      Log.e('❌ ThemeProvider: Error updating widget with new theme', e);
     }
   }
 
@@ -204,7 +234,7 @@ class ThemeProvider extends ChangeNotifier {
       // Update widget with new transparency
       await WidgetService.updateWidgetTransparency(transparency);
     } catch (e) {
-      print('❌ ThemeProvider: Error updating widget with new transparency: $e');
+      Log.e('❌ ThemeProvider: Error updating widget with new transparency', e);
     }
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:planova/providers/theme_provider.dart';
+import 'package:planova/themes/app_themes.dart';
 import 'package:provider/provider.dart';
-import '../providers/theme_provider.dart';
-import '../themes/app_themes.dart';
 
 class ThemeSelector extends StatelessWidget {
   const ThemeSelector({super.key});

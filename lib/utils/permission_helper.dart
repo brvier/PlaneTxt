@@ -1,6 +1,7 @@
-import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
+
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class PermissionHelper {
   static Future<bool> requestStoragePermission() async {
@@ -12,7 +13,7 @@ class PermissionHelper {
         return await requestManageExternalStoragePermission();
       }
     }
-    
+
     // For older Android versions or other platforms, use regular storage permission
     if (await Permission.storage.isGranted) {
       return true;

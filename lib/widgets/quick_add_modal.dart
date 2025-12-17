@@ -97,14 +97,21 @@ class _QuickAddModalState extends State<QuickAddModal> {
             Row(
               children: [
                 Expanded(
-                  child: RadioListTile<QuickAddType>(
+                  child: ListTile(
                     title: const Text('Event'),
                     subtitle: const Text('With time'),
-                    value: QuickAddType.event,
-                    groupValue: _selectedType,
-                    onChanged: (value) {
+                    leading: Radio<QuickAddType>(
+                      value: QuickAddType.event,
+                      groupValue: _selectedType,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedType = value!;
+                        });
+                      },
+                    ),
+                    onTap: () {
                       setState(() {
-                        _selectedType = value!;
+                        _selectedType = QuickAddType.event;
                       });
                     },
                     contentPadding: EdgeInsets.zero,
@@ -112,14 +119,21 @@ class _QuickAddModalState extends State<QuickAddModal> {
                   ),
                 ),
                 Expanded(
-                  child: RadioListTile<QuickAddType>(
+                  child: ListTile(
                     title: const Text('Todo'),
                     subtitle: const Text('Task'),
-                    value: QuickAddType.todo,
-                    groupValue: _selectedType,
-                    onChanged: (value) {
+                    leading: Radio<QuickAddType>(
+                      value: QuickAddType.todo,
+                      groupValue: _selectedType,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedType = value!;
+                        });
+                      },
+                    ),
+                    onTap: () {
                       setState(() {
-                        _selectedType = value!;
+                        _selectedType = QuickAddType.todo;
                       });
                     },
                     contentPadding: EdgeInsets.zero,

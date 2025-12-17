@@ -1,15 +1,16 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:planova/models/calendar_event.dart';
+import 'package:planova/models/daily_file.dart';
+import 'package:planova/providers/daily_file_provider.dart';
+
+import 'package:planova/providers/theme_provider.dart';
+import 'package:planova/utils/daily_content_helper.dart';
+import 'package:planova/utils/markdown_parser.dart';
+import 'package:planova/widgets/calendar_day_widget.dart';
+import 'package:planova/widgets/daily_editor_fullscreen.dart';
+import 'package:planova/widgets/quick_add_modal.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:intl/intl.dart';
-import '../providers/file_provider.dart';
-import '../providers/theme_provider.dart';
-import '../models/daily_file.dart';
-import '../models/calendar_event.dart';
-import '../widgets/daily_editor_fullscreen.dart';
-import '../widgets/calendar_day_widget.dart';
-import '../widgets/quick_add_modal.dart';
 
 class CalendarView extends StatefulWidget {
   const CalendarView({super.key});
@@ -30,8 +31,8 @@ class _CalendarViewState extends State<CalendarView> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<FileProvider>(
-      builder: (context, fileProvider, child) {
+    return Consumer<DailyFileProvider>(
+      builder: (context, dailyFileProvider, child) {
         return Column(
           children: [
             // Calendar - Uses its intrinsic size
@@ -73,16 +74,16 @@ class _CalendarViewState extends State<CalendarView> {
                   calendarBuilders: CalendarBuilders(
                     defaultBuilder: (context, day, focusedDay) {
                       return _buildCustomDay(
-                          context, day, focusedDay, fileProvider);
+                          context, day, focusedDay, dailyFileProvider);
                     },
                     selectedBuilder: (context, day, focusedDay) {
                       return _buildCustomDay(
-                          context, day, focusedDay, fileProvider,
+                          context, day, focusedDay, dailyFileProvider,
                           isSelected: true);
                     },
                     todayBuilder: (context, day, focusedDay) {
                       return _buildCustomDay(
-                          context, day, focusedDay, fileProvider,
+                          context, day, focusedDay, dailyFileProvider,
                           isToday: true);
                     },
                   ),
@@ -111,7 +112,7 @@ class _CalendarViewState extends State<CalendarView> {
                         padding: EdgeInsets.only(
                           bottom: MediaQuery.of(context).viewInsets.bottom,
                         ),
-                        child: _buildDailyContent(fileProvider),
+                        child: _buildDailyContent(dailyFileProvider),
                       )
                     : const Center(
                         child: Text('Select a day to view content'),
@@ -124,9 +125,9 @@ class _CalendarViewState extends State<CalendarView> {
     );
   }
 
-  Widget _buildDailyContent(FileProvider fileProvider) {
+  Widget _buildDailyContent(DailyFileProvider dailyFileProvider) {
     final dateString = _formatDate(_selectedDay!);
-    final dailyFile = fileProvider.getDailyFile(dateString);
+    final dailyFile = dailyFileProvider.getDailyFile(dateString);
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final initialContent = dailyFile?.content ?? themeProvider.dailyTemplate;
 
@@ -137,19 +138,19 @@ class _CalendarViewState extends State<CalendarView> {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             IconButton(
-              onPressed: () => _showQuickAddModal(context, fileProvider),
+              onPressed: () => _showQuickAddModal(context, dailyFileProvider),
               icon: const Icon(Icons.add),
               tooltip: 'Quick add event or todo',
             ),
             IconButton(
               onPressed: () => _openDailyEditor(
-                  context, fileProvider, dateString, initialContent),
+                  context, dailyFileProvider, dateString, initialContent),
               icon: const Icon(Icons.edit),
               tooltip: 'Edit daily notes',
             ),
             IconButton(
               onPressed: () =>
-                  _showRefillDialog(context, fileProvider, dateString),
+                  _showRefillDialog(context, dailyFileProvider, dateString),
               icon: const Icon(Icons.refresh),
               tooltip: 'Refill undone todos to this day',
             ),
@@ -161,14 +162,14 @@ class _CalendarViewState extends State<CalendarView> {
         if (dailyFile != null)
           GestureDetector(
             onDoubleTap: () => _openDailyEditor(
-                context, fileProvider, dateString, initialContent),
+                context, dailyFileProvider, dateString, initialContent),
             child: Column(
               children: [
-                _buildCalendarEventsSection(fileProvider, dateString),
+                _buildCalendarEventsSection(dailyFileProvider, dateString),
                 const SizedBox(height: 12),
-                _buildTasksSection(fileProvider, dateString),
+                _buildTasksSection(dailyFileProvider, dateString),
                 const SizedBox(height: 12),
-                _buildNotesSection(fileProvider, dateString),
+                _buildNotesSection(dailyFileProvider, dateString),
               ],
             ),
           ),
@@ -178,14 +179,14 @@ class _CalendarViewState extends State<CalendarView> {
 
   void _loadDailyContent(DateTime day) {
     final dateString = _formatDate(day);
-    context.read<FileProvider>().setSelectedDate(dateString);
+    context.read<DailyFileProvider>().setSelectedDate(dateString);
   }
 
-  void _showQuickAddModal(BuildContext context, FileProvider fileProvider) {
+  void _showQuickAddModal(BuildContext context, DailyFileProvider dailyFileProvider) {
     if (_selectedDay == null) return;
     
     final dateString = _formatDate(_selectedDay!);
-    final dailyFile = fileProvider.getDailyFile(dateString);
+    final dailyFile = dailyFileProvider.getDailyFile(dateString);
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final currentContent = dailyFile?.content ?? themeProvider.dailyTemplate;
     
@@ -194,17 +195,28 @@ class _CalendarViewState extends State<CalendarView> {
       builder: (context) => QuickAddModal(
         selectedDate: _selectedDay!,
         onAdd: (content) {
-          // Append the new content to the existing daily content
-          final newContent = currentContent.isEmpty 
-              ? content 
-              : '$currentContent\n\n$content';
-          fileProvider.saveDailyFile(dateString, newContent);
+          // Determine if it's a todo or event based on content format
+          // Events: "- @HH:MM title"
+          // Todos: "- [ ] title"
+          final isEvent = content.startsWith('- @');
+          final headerRegex = isEvent 
+              ? themeProvider.eventHeaderRegex 
+              : themeProvider.todoHeaderRegex;
+          
+          // Insert content after the matching header
+          final newContent = DailyContentHelper.insertAfterHeader(
+            currentContent,
+            content,
+            headerRegex,
+          );
+          
+          dailyFileProvider.saveDailyFile(context, dateString, newContent);
         },
       ),
     );
   }
 
-  void _openDailyEditor(BuildContext context, FileProvider fileProvider,
+  void _openDailyEditor(BuildContext context, DailyFileProvider dailyFileProvider,
       String dateString, String initialContent) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -212,10 +224,10 @@ class _CalendarViewState extends State<CalendarView> {
           date: dateString,
           initialContent: initialContent,
           onSave: (content) {
-            fileProvider.saveDailyFile(dateString, content);
+            dailyFileProvider.saveDailyFile(context, dateString, content);
           },
           onAutoSave: (content) {
-            fileProvider.saveDailyFile(dateString, content);
+            dailyFileProvider.saveDailyFile(context, dateString, content);
             // Don't show snackbar for autosave
           },
         ),
@@ -232,13 +244,13 @@ class _CalendarViewState extends State<CalendarView> {
   }
 
   Widget _buildCustomDay(BuildContext context, DateTime day,
-      DateTime focusedDay, FileProvider fileProvider,
+      DateTime focusedDay, DailyFileProvider dailyFileProvider,
       {bool isSelected = false, bool isToday = false}) {
     final dateString = _formatDate(day);
-    final undoneTodoCount = fileProvider.getUndoneTodoCount(dateString);
-    final hasTodos = fileProvider.hasTodos(dateString);
-    final hasDailyFile = fileProvider.getDailyFile(dateString) != null;
-    final hasCalendarEvents = fileProvider.hasCalendarEvents(dateString);
+    final undoneTodoCount = dailyFileProvider.getUndoneTodoCount(dateString);
+    final hasTodos = dailyFileProvider.hasTodos(dateString);
+    final hasDailyFile = dailyFileProvider.getDailyFile(dateString) != null;
+    final hasCalendarEvents = dailyFileProvider.hasCalendarEvents(dateString);
     final isOutsideMonth = day.month != focusedDay.month;
 
     return CalendarDayWidget(
@@ -254,8 +266,8 @@ class _CalendarViewState extends State<CalendarView> {
   }
 
   Widget _buildCalendarEventsSection(
-      FileProvider fileProvider, String dateString) {
-    final events = fileProvider.getCalendarEvents(dateString);
+      DailyFileProvider dailyFileProvider, String dateString) {
+    final events = dailyFileProvider.getCalendarEvents(dateString);
 
     if (events.isEmpty) {
       return const SizedBox.shrink();
@@ -352,19 +364,19 @@ class _CalendarViewState extends State<CalendarView> {
                       ],
                     ),
                   ))
-              .toList(),
+              ,
         ],
       ),
     );
   }
 
-  Widget _buildTasksSection(FileProvider fileProvider, String dateString) {
-    final dailyFile = fileProvider.getDailyFile(dateString);
+  Widget _buildTasksSection(DailyFileProvider dailyFileProvider, String dateString) {
+    final dailyFile = dailyFileProvider.getDailyFile(dateString);
     if (dailyFile == null || dailyFile.content.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final tasks = _parseTasks(dailyFile.content);
+    final tasks = MarkdownParser.parseTasks(dailyFile.content);
 
     if (tasks.isEmpty) {
       return const SizedBox.shrink();
@@ -435,39 +447,19 @@ class _CalendarViewState extends State<CalendarView> {
                       ],
                     ),
                   ))
-              .toList(),
+              ,
         ],
       ),
     );
   }
 
-  List<TaskItem> _parseTasks(String content) {
-    final tasks = <TaskItem>[];
-    final lines = content.split('\n');
-
-    for (final line in lines) {
-      final todoMatch =
-          RegExp(r'^\s*[-*+]\s*\[\s*([x\s])\s*\]\s+(.+)$').firstMatch(line);
-      if (todoMatch != null) {
-        final isCompleted = todoMatch.group(1) == 'x';
-        final text = todoMatch.group(2)!.trim();
-        tasks.add(TaskItem(
-          text: text,
-          isCompleted: isCompleted,
-        ));
-      }
-    }
-
-    return tasks;
-  }
-
-  Widget _buildNotesSection(FileProvider fileProvider, String dateString) {
-    final dailyFile = fileProvider.getDailyFile(dateString);
+  Widget _buildNotesSection(DailyFileProvider dailyFileProvider, String dateString) {
+    final dailyFile = dailyFileProvider.getDailyFile(dateString);
     if (dailyFile == null || dailyFile.content.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final notes = _parseNotes(dailyFile.content);
+    final notes = MarkdownParser.parseNotes(dailyFile.content);
 
     if (notes.isEmpty) {
       return const SizedBox.shrink();
@@ -524,53 +516,16 @@ class _CalendarViewState extends State<CalendarView> {
                       ],
                     ),
                   ))
-              .toList(),
+              ,
         ],
       ),
     );
   }
 
-  List<String> _parseNotes(String content) {
-    final notes = <String>[];
-    final lines = content.split('\n');
-
-    for (final line in lines) {
-      final trimmedLine = line.trim();
-
-      // Skip empty lines
-      if (trimmedLine.isEmpty) continue;
-
-      // Skip events (lines with @HH:MM)
-      if (RegExp(r'@\d{1,2}:\d{2}').hasMatch(trimmedLine)) continue;
-
-      // Skip tasks (lines with [ ] or [x])
-      if (RegExp(r'^\s*[-*+]\s*\[\s*[x\s]\s*\]\s+').hasMatch(trimmedLine))
-        continue;
-
-      // Skip markdown headers (lines starting with #)
-      if (trimmedLine.startsWith('#')) continue;
-
-      // Skip markdown list markers without checkboxes
-      if (RegExp(r'^\s*[-*+]\s+').hasMatch(trimmedLine)) {
-        final cleanLine =
-            trimmedLine.replaceAll(RegExp(r'^\s*[-*+]\s+'), '').trim();
-        if (cleanLine.isNotEmpty) {
-          notes.add(cleanLine);
-        }
-        continue;
-      }
-
-      // Add regular text content
-      notes.add(trimmedLine);
-    }
-
-    return notes;
-  }
-
   // Removed refile functionality - now handled by refill
   void _showRefileDialog_removed(
-      BuildContext context, FileProvider fileProvider, String currentDate) {
-    final dailyFile = fileProvider.getDailyFile(currentDate);
+      BuildContext context, DailyFileProvider dailyFileProvider, String currentDate) {
+    final dailyFile = dailyFileProvider.getDailyFile(currentDate);
     if (dailyFile == null || dailyFile.content.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No content to refile')),
@@ -578,9 +533,9 @@ class _CalendarViewState extends State<CalendarView> {
       return;
     }
 
-    final events = fileProvider.getCalendarEvents(currentDate);
-    final tasks = _parseTasks(dailyFile.content);
-    final notes = _parseNotes(dailyFile.content);
+    final events = dailyFileProvider.getCalendarEvents(currentDate);
+    final tasks = MarkdownParser.parseTasks(dailyFile.content);
+    final notes = MarkdownParser.parseNotes(dailyFile.content);
 
     if (events.isEmpty && tasks.isEmpty && notes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -597,19 +552,19 @@ class _CalendarViewState extends State<CalendarView> {
         tasks: tasks,
         notes: notes,
         onRefile: (targetDate, items) {
-          _performRefile_removed(context, fileProvider, currentDate, targetDate, items);
+          _performRefile_removed(context, dailyFileProvider, currentDate, targetDate, items);
         },
       ),
     );
   }
 
-  void _performRefile_removed(BuildContext context, FileProvider fileProvider,
+  void _performRefile_removed(BuildContext context, DailyFileProvider dailyFileProvider,
       String currentDate, String targetDate, List<RefileItem> items) {
-    final dailyFile = fileProvider.getDailyFile(currentDate);
+    final dailyFile = dailyFileProvider.getDailyFile(currentDate);
     if (dailyFile == null) return;
 
     // Get target daily file
-    final targetDailyFile = fileProvider.getDailyFile(targetDate);
+    final targetDailyFile = dailyFileProvider.getDailyFile(targetDate);
     final targetContent = targetDailyFile?.content ?? '';
 
     // Remove items from current file
@@ -625,12 +580,12 @@ class _CalendarViewState extends State<CalendarView> {
     }
 
     for (final item in items) {
-      newTargetContent += item.content + '\n';
+      newTargetContent += '${item.content}\n';
     }
 
     // Save both files
-    fileProvider.saveDailyFile(currentDate, newCurrentContent);
-    fileProvider.saveDailyFile(targetDate, newTargetContent);
+    dailyFileProvider.saveDailyFile(context, currentDate, newCurrentContent);
+    dailyFileProvider.saveDailyFile(context, targetDate, newTargetContent);
 
     // Refresh the UI
     setState(() {});
@@ -665,7 +620,7 @@ class _CalendarViewState extends State<CalendarView> {
   }
 
   void _showRefillDialog(
-      BuildContext context, FileProvider fileProvider, String currentDate) {
+      BuildContext context, DailyFileProvider dailyFileProvider, String currentDate) {
     final currentDateTime = _parseDateFromString(currentDate);
 
     // Collect all undone todos from previous days up to the selected date
@@ -675,10 +630,10 @@ class _CalendarViewState extends State<CalendarView> {
     for (int i = 1; i <= 30; i++) {
       final checkDate = currentDateTime.subtract(Duration(days: i));
       final checkDateString = _formatDate(checkDate);
-      final dailyFile = fileProvider.getDailyFile(checkDateString);
+      final dailyFile = dailyFileProvider.getDailyFile(checkDateString);
 
       if (dailyFile != null && dailyFile.content.isNotEmpty) {
-        final tasks = _parseTasks(dailyFile.content);
+        final tasks = MarkdownParser.parseTasks(dailyFile.content);
         for (final task in tasks) {
           if (!task.isCompleted) {
             undoneTodos.add(RefillTodo(
@@ -704,18 +659,18 @@ class _CalendarViewState extends State<CalendarView> {
       builder: (context) => _RefillDialog(
         undoneTodos: undoneTodos,
         onRefill: (selectedTodos) {
-          _performRefill(context, fileProvider, selectedTodos, currentDate);
+          _performRefill(context, dailyFileProvider, selectedTodos, currentDate);
         },
       ),
     );
   }
 
-  void _performRefill(BuildContext context, FileProvider fileProvider,
+  void _performRefill(BuildContext context, DailyFileProvider dailyFileProvider,
       List<RefillTodo> selectedTodos, String targetDate) {
     final targetDateString = targetDate;
 
     // Get target date's content
-    final targetDailyFile = fileProvider.getDailyFile(targetDateString);
+    final targetDailyFile = dailyFileProvider.getDailyFile(targetDateString);
     String targetContent = targetDailyFile?.content ?? '';
 
     // Add todos to target date
@@ -733,7 +688,7 @@ class _CalendarViewState extends State<CalendarView> {
     for (final entry in todosByDate.entries) {
       final sourceDate = entry.key;
       final todos = entry.value;
-      final sourceDailyFile = fileProvider.getDailyFile(sourceDate);
+      final sourceDailyFile = dailyFileProvider.getDailyFile(sourceDate);
 
       if (sourceDailyFile != null) {
         String newSourceContent = sourceDailyFile.content;
@@ -745,16 +700,16 @@ class _CalendarViewState extends State<CalendarView> {
                 type: 'task',
               ));
         }
-        fileProvider.saveDailyFile(sourceDate, newSourceContent);
+        dailyFileProvider.saveDailyFile(context, sourceDate, newSourceContent);
       }
     }
 
     // Add todos to today
     for (final todo in selectedTodos) {
-      targetContent += todo.content + '\n';
+      targetContent += '${todo.content}\n';
     }
 
-    fileProvider.saveDailyFile(targetDateString, targetContent);
+    dailyFileProvider.saveDailyFile(context, targetDateString, targetContent);
 
     // Refresh the UI
     setState(() {});
@@ -767,16 +722,6 @@ class _CalendarViewState extends State<CalendarView> {
       );
     }
   }
-}
-
-class TaskItem {
-  final String text;
-  final bool isCompleted;
-
-  TaskItem({
-    required this.text,
-    required this.isCompleted,
-  });
 }
 
 class RefileItem {

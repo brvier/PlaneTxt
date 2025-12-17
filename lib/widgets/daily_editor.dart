@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'markdown_editor.dart';
+import 'package:planova/widgets/markdown_editor.dart';
 
 class DailyEditor extends StatefulWidget {
   final String date;

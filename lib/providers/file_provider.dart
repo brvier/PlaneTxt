@@ -48,24 +48,25 @@ class FileProvider extends ChangeNotifier {
   Future<void> initializeDirectories(BuildContext context) async {
     Log.i('📁 FileProvider: Initializing directories...');
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    
+
     try {
-      await _storageService.initializeDirectories(themeProvider.customStoragePath);
-      
+      await _storageService
+          .initializeDirectories(themeProvider.customStoragePath);
+
       await loadDailyFiles();
       await loadNoteFiles();
-      
+
       // Initialize file monitoring for external changes
       if (dailiesDirectory != null) {
         await FileMonitorService().initialize(dailiesDirectory!);
       }
-      
+
       // Update widget with today's content
       await _updateWidget(context);
-      
+
       // Start periodic widget updates
       _startWidgetUpdateTimer();
-      
+
       Log.i('📁 FileProvider: Directory initialization completed successfully');
       notifyListeners();
     } catch (e) {
@@ -76,10 +77,10 @@ class FileProvider extends ChangeNotifier {
 
   Future<void> loadDailyFiles() async {
     _dailyFiles = await _dailyRepository.loadAll();
-    
+
     // Update widget with today's content
     await _updateWidget();
-    
+
     notifyListeners();
   }
 
@@ -91,7 +92,7 @@ class FileProvider extends ChangeNotifier {
   Future<void> saveDailyFile(String date, String content) async {
     try {
       final dailyFile = await _dailyRepository.create(date, content);
-      
+
       // Update local list
       final index = _dailyFiles.indexWhere((d) => d.date == date);
       if (index != -1) {
@@ -115,8 +116,8 @@ class FileProvider extends ChangeNotifier {
 
   Future<void> saveNoteFile(String relativePath, String content) async {
     try {
-      final noteFile = await _noteRepository.create(relativePath, content);
-      
+      await _noteRepository.create(relativePath, content);
+
       // Reload notes to ensure correct order and metadata
       await loadNoteFiles();
 
@@ -132,13 +133,14 @@ class FileProvider extends ChangeNotifier {
   Future<bool> renameNoteFile(NoteFile note, String newName) async {
     // Validate new name
     if (newName.trim().isEmpty) return false;
-    
+
     // Clean the new name
-    final cleanName = newName.trim().replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
+    final cleanName =
+        newName.trim().replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
     if (cleanName.isEmpty) return false;
 
     // Create new relative path
-    final newRelativePath = note.folderPath.isEmpty 
+    final newRelativePath = note.folderPath.isEmpty
         ? '$cleanName.md'
         : '${note.folderPath}/$cleanName.md';
 
@@ -146,23 +148,23 @@ class FileProvider extends ChangeNotifier {
       // Check if exists
       final dir = _storageService.notesDirectory;
       if (dir == null) return false;
-      
+
       final newFile = File('${dir.path}/$newRelativePath');
       if (await newFile.exists()) return false;
 
-      // Perform rename via repository (delete old, create new for now as repository doesn't have rename yet, 
-      // or implement rename in repository. Let's do manual rename here using StorageService or just file system for now 
+      // Perform rename via repository (delete old, create new for now as repository doesn't have rename yet,
+      // or implement rename in repository. Let's do manual rename here using StorageService or just file system for now
       // but better to add rename to Repository later. For now, I'll stick to the logic:
-      
+
       final oldFile = File(note.path);
       await oldFile.rename(newFile.path);
-      
+
       // Reload notes
       await loadNoteFiles();
-      
+
       // Update widget
       await _updateWidget();
-      
+
       return true;
     } catch (e) {
       Log.e('❌ FileProvider: Error renaming note', e);
@@ -197,7 +199,7 @@ class FileProvider extends ChangeNotifier {
   bool hasUndoneTodos(String date) {
     final dailyFile = getDailyFile(date);
     if (dailyFile == null || dailyFile.content.isEmpty) return false;
-    
+
     final tasks = MarkdownParser.parseTasks(dailyFile.content);
     return tasks.any((task) => !task.isCompleted);
   }
@@ -205,7 +207,7 @@ class FileProvider extends ChangeNotifier {
   bool hasTodos(String date) {
     final dailyFile = getDailyFile(date);
     if (dailyFile == null || dailyFile.content.isEmpty) return false;
-    
+
     final tasks = MarkdownParser.parseTasks(dailyFile.content);
     return tasks.isNotEmpty;
   }
@@ -213,7 +215,7 @@ class FileProvider extends ChangeNotifier {
   int getUndoneTodoCount(String date) {
     final dailyFile = getDailyFile(date);
     if (dailyFile == null || dailyFile.content.isEmpty) return 0;
-    
+
     final tasks = MarkdownParser.parseTasks(dailyFile.content);
     return tasks.where((task) => !task.isCompleted).length;
   }
@@ -235,31 +237,35 @@ class FileProvider extends ChangeNotifier {
   Future<void> _updateWidget([BuildContext? context]) async {
     try {
       if (_storageService.orgDirectory == null) {
-        Log.d('📱 FileProvider: Skipping widget update - directories not initialized');
+        Log.d(
+            '📱 FileProvider: Skipping widget update - directories not initialized');
         return;
       }
 
       final todayDate = getTodayDate();
-      
+
       if (_lastWidgetUpdateDate != todayDate) {
-        Log.i('📱 FileProvider: Date changed from $_lastWidgetUpdateDate to $todayDate, updating widget');
+        Log.i(
+            '📱 FileProvider: Date changed from $_lastWidgetUpdateDate to $todayDate, updating widget');
         _lastWidgetUpdateDate = todayDate;
       } else {
         Log.d('📱 FileProvider: Updating widget (date unchanged: $todayDate)');
       }
-      
+
       final todayDailyFile = getDailyFile(todayDate);
-      
+
       bool isDarkTheme = false;
       double transparency = 1.0;
-      
+
       if (context != null) {
         try {
-          final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+          final themeProvider =
+              Provider.of<ThemeProvider>(context, listen: false);
           isDarkTheme = themeProvider.widgetDarkTheme;
           transparency = themeProvider.widgetTransparency;
         } catch (e) {
-          Log.w('📱 FileProvider: Could not access ThemeProvider, falling back to SharedPreferences');
+          Log.w(
+              '📱 FileProvider: Could not access ThemeProvider, falling back to SharedPreferences');
           final prefs = await SharedPreferences.getInstance();
           isDarkTheme = prefs.getBool('flutter.widget_dark_theme') ?? false;
           transparency = prefs.getDouble('flutter.widget_transparency') ?? 1.0;
@@ -269,15 +275,18 @@ class FileProvider extends ChangeNotifier {
         isDarkTheme = prefs.getBool('flutter.widget_dark_theme') ?? false;
         transparency = prefs.getDouble('flutter.widget_transparency') ?? 1.0;
       }
-      
-      Log.d('📱 FileProvider: Updating widget with dark theme: $isDarkTheme, transparency: ${(transparency * 100).round()}%');
-      
+
+      Log.d(
+          '📱 FileProvider: Updating widget with dark theme: $isDarkTheme, transparency: ${(transparency * 100).round()}%');
+
       if (todayDailyFile != null) {
-        await WidgetService.updateWithDailyFile(todayDailyFile, isDarkTheme: isDarkTheme, transparency: transparency);
+        await WidgetService.updateWithDailyFile(todayDailyFile,
+            isDarkTheme: isDarkTheme, transparency: transparency);
       }
-      
-      await WidgetService.updateWithNotes(_noteFiles, isDarkTheme: isDarkTheme, transparency: transparency);
-      
+
+      await WidgetService.updateWithNotes(_noteFiles,
+          isDarkTheme: isDarkTheme, transparency: transparency);
+
       Log.i('📱 FileProvider: Widget updated successfully');
     } catch (e) {
       Log.e('❌ FileProvider: Error updating widget', e);
@@ -287,7 +296,8 @@ class FileProvider extends ChangeNotifier {
   Future<void> checkDateChangeAndUpdateWidget([BuildContext? context]) async {
     final todayDate = getTodayDate();
     if (_lastWidgetUpdateDate != todayDate) {
-      Log.i('📱 FileProvider: Date changed detected (was: $_lastWidgetUpdateDate, now: $todayDate), updating widget');
+      Log.i(
+          '📱 FileProvider: Date changed detected (was: $_lastWidgetUpdateDate, now: $todayDate), updating widget');
       await _updateWidget(context);
     }
   }
@@ -296,13 +306,14 @@ class FileProvider extends ChangeNotifier {
     try {
       final notificationService = NotificationService();
       await notificationService.initialize();
-      
+
       final events = MarkdownParser.parseEvents(date, content);
-      
+
       await notificationService.cancelNotificationsForDate(date);
-      
+
       for (final event in events) {
-        final eventId = NotificationService.generateEventId(event.displayTitle, event.time);
+        final eventId =
+            NotificationService.generateEventId(event.displayTitle, event.time);
         await notificationService.scheduleEventNotification(
           id: eventId,
           title: event.displayTitle,
@@ -311,7 +322,7 @@ class FileProvider extends ChangeNotifier {
           date: date,
         );
       }
-      
+
       Log.i('📅 Scheduled ${events.length} event notifications for $date');
     } catch (e) {
       Log.e('❌ Error scheduling event notifications', e);
@@ -331,7 +342,8 @@ class FileProvider extends ChangeNotifier {
         Log.e('❌ FileProvider: Error in periodic widget update', e);
       }
     });
-    Log.i('📱 FileProvider: Started periodic widget update timer (every 30 minutes)');
+    Log.i(
+        '📱 FileProvider: Started periodic widget update timer (every 30 minutes)');
   }
 
   @override

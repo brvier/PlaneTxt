@@ -79,8 +79,9 @@ class _QuickAddModalState extends State<QuickAddModal> {
                       Text(
                         'Adding to ${DateFormat('MMM dd, yyyy').format(widget.selectedDate)}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).textTheme.bodySmall?.color,
-                        ),
+                              color:
+                                  Theme.of(context).textTheme.bodySmall?.color,
+                            ),
                       ),
                     ],
                   ),
@@ -94,53 +95,50 @@ class _QuickAddModalState extends State<QuickAddModal> {
             const SizedBox(height: 16),
 
             // Type selection
-            Row(
-              children: [
-                Expanded(
-                  child: ListTile(
-                    title: const Text('Event'),
-                    subtitle: const Text('With time'),
-                    leading: Radio<QuickAddType>(
-                      value: QuickAddType.event,
-                      groupValue: _selectedType,
-                      onChanged: (value) {
+            RadioGroup<QuickAddType>(
+              groupValue: _selectedType,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _selectedType = value;
+                });
+              },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ListTile(
+                      title: const Text('Event'),
+                      subtitle: const Text('With time'),
+                      leading: const Radio<QuickAddType>(
+                        value: QuickAddType.event,
+                      ),
+                      onTap: () {
                         setState(() {
-                          _selectedType = value!;
+                          _selectedType = QuickAddType.event;
                         });
                       },
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
                     ),
-                    onTap: () {
-                      setState(() {
-                        _selectedType = QuickAddType.event;
-                      });
-                    },
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
                   ),
-                ),
-                Expanded(
-                  child: ListTile(
-                    title: const Text('Todo'),
-                    subtitle: const Text('Task'),
-                    leading: Radio<QuickAddType>(
-                      value: QuickAddType.todo,
-                      groupValue: _selectedType,
-                      onChanged: (value) {
+                  Expanded(
+                    child: ListTile(
+                      title: const Text('Todo'),
+                      subtitle: const Text('Task'),
+                      leading: const Radio<QuickAddType>(
+                        value: QuickAddType.todo,
+                      ),
+                      onTap: () {
                         setState(() {
-                          _selectedType = value!;
+                          _selectedType = QuickAddType.todo;
                         });
                       },
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
                     ),
-                    onTap: () {
-                      setState(() {
-                        _selectedType = QuickAddType.todo;
-                      });
-                    },
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 24),
 
@@ -162,7 +160,7 @@ class _QuickAddModalState extends State<QuickAddModal> {
                 child: OutlinedButton.icon(
                   onPressed: _selectTime,
                   icon: const Icon(Icons.access_time),
-                    label: Text(_formatTime24Hour(_selectedTime)),
+                  label: Text(_formatTime24Hour(_selectedTime)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -174,7 +172,9 @@ class _QuickAddModalState extends State<QuickAddModal> {
               child: ElevatedButton.icon(
                 onPressed: _addItem,
                 icon: const Icon(Icons.add),
-                label: Text(_selectedType == QuickAddType.event ? 'Add Event' : 'Add Todo'),
+                label: Text(_selectedType == QuickAddType.event
+                    ? 'Add Event'
+                    : 'Add Todo'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -185,7 +185,6 @@ class _QuickAddModalState extends State<QuickAddModal> {
       ),
     );
   }
-
 
   Future<void> _selectTime() async {
     final TimeOfDay? picked = await showTimePicker(
@@ -231,10 +230,11 @@ class _QuickAddModalState extends State<QuickAddModal> {
 
     widget.onAdd(content);
     Navigator.of(context).pop();
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_selectedType == QuickAddType.event ? 'Event added' : 'Todo added'),
+        content: Text(
+            _selectedType == QuickAddType.event ? 'Event added' : 'Todo added'),
       ),
     );
   }

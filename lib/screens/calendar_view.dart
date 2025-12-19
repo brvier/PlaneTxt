@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:planova/models/calendar_event.dart';
 import 'package:planova/models/daily_file.dart';
 import 'package:planova/providers/daily_file_provider.dart';
 
@@ -40,66 +39,63 @@ class _CalendarViewState extends State<CalendarView> {
               padding: const EdgeInsets.fromLTRB(
                   16, 16, 16, 0), // Remove bottom padding
               child: TableCalendar<DailyFile>(
-                  firstDay: DateTime(2020),
-                  lastDay: DateTime(2030),
-                  focusedDay: _focusedDay,
-                  selectedDayPredicate: (day) {
-                    return isSameDay(_selectedDay, day);
-                  },
-                  onDaySelected: (selectedDay, focusedDay) {
-                    if (!isSameDay(_selectedDay, selectedDay)) {
-                      setState(() {
-                        _selectedDay = selectedDay;
-                        _focusedDay = focusedDay;
-                      });
-                      _loadDailyContent(selectedDay);
-                    }
-                  },
-                  onPageChanged: (focusedDay) {
-                    _focusedDay = focusedDay;
-                  },
-                  eventLoader: (day) {
-                    // We're using custom day builders instead of events
-                    return [];
-                  },
-                  calendarFormat: CalendarFormat.month,
-                  startingDayOfWeek: StartingDayOfWeek.monday,
-                  calendarStyle: const CalendarStyle(
-                    outsideDaysVisible: false,
-                    markersMaxCount: 0, // We'll use custom day builder instead
-                    cellPadding:
-                        EdgeInsets.zero, // Remove internal cell padding
-                    cellMargin: EdgeInsets.zero, // Remove internal cell margin
-                  ),
-                  calendarBuilders: CalendarBuilders(
-                    defaultBuilder: (context, day, focusedDay) {
-                      return _buildCustomDay(
-                          context, day, focusedDay, dailyFileProvider);
-                    },
-                    selectedBuilder: (context, day, focusedDay) {
-                      return _buildCustomDay(
-                          context, day, focusedDay, dailyFileProvider,
-                          isSelected: true);
-                    },
-                    todayBuilder: (context, day, focusedDay) {
-                      return _buildCustomDay(
-                          context, day, focusedDay, dailyFileProvider,
-                          isToday: true);
-                    },
-                  ),
-                  headerStyle: const HeaderStyle(
-                    formatButtonVisible: false,
-                    titleCentered: true,
-                    leftChevronPadding:
-                        EdgeInsets.zero, // Remove header padding
-                    rightChevronPadding:
-                        EdgeInsets.zero, // Remove header padding
-                  ),
-                  daysOfWeekStyle: const DaysOfWeekStyle(
-                    weekdayStyle: TextStyle(fontSize: 12), // Smaller day labels
-                    weekendStyle: TextStyle(fontSize: 12), // Smaller day labels
-                  ),
+                firstDay: DateTime(2020),
+                lastDay: DateTime(2030),
+                focusedDay: _focusedDay,
+                selectedDayPredicate: (day) {
+                  return isSameDay(_selectedDay, day);
+                },
+                onDaySelected: (selectedDay, focusedDay) {
+                  if (!isSameDay(_selectedDay, selectedDay)) {
+                    setState(() {
+                      _selectedDay = selectedDay;
+                      _focusedDay = focusedDay;
+                    });
+                    _loadDailyContent(selectedDay);
+                  }
+                },
+                onPageChanged: (focusedDay) {
+                  _focusedDay = focusedDay;
+                },
+                eventLoader: (day) {
+                  // We're using custom day builders instead of events
+                  return [];
+                },
+                calendarFormat: CalendarFormat.month,
+                startingDayOfWeek: StartingDayOfWeek.monday,
+                calendarStyle: const CalendarStyle(
+                  outsideDaysVisible: false,
+                  markersMaxCount: 0, // We'll use custom day builder instead
+                  cellPadding: EdgeInsets.zero, // Remove internal cell padding
+                  cellMargin: EdgeInsets.zero, // Remove internal cell margin
                 ),
+                calendarBuilders: CalendarBuilders(
+                  defaultBuilder: (context, day, focusedDay) {
+                    return _buildCustomDay(
+                        context, day, focusedDay, dailyFileProvider);
+                  },
+                  selectedBuilder: (context, day, focusedDay) {
+                    return _buildCustomDay(
+                        context, day, focusedDay, dailyFileProvider,
+                        isSelected: true);
+                  },
+                  todayBuilder: (context, day, focusedDay) {
+                    return _buildCustomDay(
+                        context, day, focusedDay, dailyFileProvider,
+                        isToday: true);
+                  },
+                ),
+                headerStyle: const HeaderStyle(
+                  formatButtonVisible: false,
+                  titleCentered: true,
+                  leftChevronPadding: EdgeInsets.zero, // Remove header padding
+                  rightChevronPadding: EdgeInsets.zero, // Remove header padding
+                ),
+                daysOfWeekStyle: const DaysOfWeekStyle(
+                  weekdayStyle: TextStyle(fontSize: 12), // Smaller day labels
+                  weekendStyle: TextStyle(fontSize: 12), // Smaller day labels
+                ),
+              ),
             ),
 
             // Daily content - Takes remaining space with flex
@@ -182,14 +178,15 @@ class _CalendarViewState extends State<CalendarView> {
     context.read<DailyFileProvider>().setSelectedDate(dateString);
   }
 
-  void _showQuickAddModal(BuildContext context, DailyFileProvider dailyFileProvider) {
+  void _showQuickAddModal(
+      BuildContext context, DailyFileProvider dailyFileProvider) {
     if (_selectedDay == null) return;
-    
+
     final dateString = _formatDate(_selectedDay!);
     final dailyFile = dailyFileProvider.getDailyFile(dateString);
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final currentContent = dailyFile?.content ?? themeProvider.dailyTemplate;
-    
+
     showDialog(
       context: context,
       builder: (context) => QuickAddModal(
@@ -199,25 +196,28 @@ class _CalendarViewState extends State<CalendarView> {
           // Events: "- @HH:MM title"
           // Todos: "- [ ] title"
           final isEvent = content.startsWith('- @');
-          final headerRegex = isEvent 
-              ? themeProvider.eventHeaderRegex 
+          final headerRegex = isEvent
+              ? themeProvider.eventHeaderRegex
               : themeProvider.todoHeaderRegex;
-          
+
           // Insert content after the matching header
           final newContent = DailyContentHelper.insertAfterHeader(
             currentContent,
             content,
             headerRegex,
           );
-          
+
           dailyFileProvider.saveDailyFile(context, dateString, newContent);
         },
       ),
     );
   }
 
-  void _openDailyEditor(BuildContext context, DailyFileProvider dailyFileProvider,
-      String dateString, String initialContent) {
+  void _openDailyEditor(
+      BuildContext context,
+      DailyFileProvider dailyFileProvider,
+      String dateString,
+      String initialContent) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => DailyEditorFullscreen(
@@ -300,77 +300,73 @@ class _CalendarViewState extends State<CalendarView> {
             ],
           ),
           const SizedBox(height: 8),
-          ...events
-              .map((event) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 4,
-                          height: 4,
-                          margin: const EdgeInsets.only(top: 6, right: 8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+          ...events.map((event) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 4,
+                      margin: const EdgeInsets.only(top: 6, right: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    event.formattedTime,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                        ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      event.displayTitle,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium,
+                              Text(
+                                event.formattedTime,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
                                     ),
-                                  ),
-                                ],
                               ),
-                              if (event.description.isNotEmpty) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  event.description,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
-                                      ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  event.displayTitle,
+                                  style: Theme.of(context).textTheme.bodyMedium,
                                 ),
-                              ],
+                              ),
                             ],
                           ),
-                        ),
-                      ],
+                          if (event.description.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              event.description,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ))
-              ,
+                  ],
+                ),
+              )),
         ],
       ),
     );
   }
 
-  Widget _buildTasksSection(DailyFileProvider dailyFileProvider, String dateString) {
+  Widget _buildTasksSection(
+      DailyFileProvider dailyFileProvider, String dateString) {
     final dailyFile = dailyFileProvider.getDailyFile(dateString);
     if (dailyFile == null || dailyFile.content.isEmpty) {
       return const SizedBox.shrink();
@@ -409,51 +405,47 @@ class _CalendarViewState extends State<CalendarView> {
             ],
           ),
           const SizedBox(height: 8),
-          ...tasks
-              .map((task) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 4,
-                          height: 4,
-                          margin: const EdgeInsets.only(top: 6, right: 8),
-                          decoration: BoxDecoration(
-                            color: task.isCompleted
-                                ? Theme.of(context).colorScheme.secondary
-                                : Theme.of(context).colorScheme.error,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            task.text,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  decoration: task.isCompleted
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                  color: task.isCompleted
-                                      ? Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant
-                                      : null,
-                                ),
-                          ),
-                        ),
-                      ],
+          ...tasks.map((task) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 4,
+                      margin: const EdgeInsets.only(top: 6, right: 8),
+                      decoration: BoxDecoration(
+                        color: task.isCompleted
+                            ? Theme.of(context).colorScheme.secondary
+                            : Theme.of(context).colorScheme.error,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ))
-              ,
+                    Expanded(
+                      child: Text(
+                        task.text,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              decoration: task.isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: task.isCompleted
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant
+                                  : null,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
         ],
       ),
     );
   }
 
-  Widget _buildNotesSection(DailyFileProvider dailyFileProvider, String dateString) {
+  Widget _buildNotesSection(
+      DailyFileProvider dailyFileProvider, String dateString) {
     final dailyFile = dailyFileProvider.getDailyFile(dateString);
     if (dailyFile == null || dailyFile.content.isEmpty) {
       return const SizedBox.shrink();
@@ -492,111 +484,32 @@ class _CalendarViewState extends State<CalendarView> {
             ],
           ),
           const SizedBox(height: 8),
-          ...notes
-              .map((note) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 4,
-                          height: 4,
-                          margin: const EdgeInsets.only(top: 6, right: 8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            note,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
+          ...notes.map((note) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 4,
+                      margin: const EdgeInsets.only(top: 6, right: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ))
-              ,
+                    Expanded(
+                      child: Text(
+                        note,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
+              )),
         ],
       ),
     );
-  }
-
-  // Removed refile functionality - now handled by refill
-  void _showRefileDialog_removed(
-      BuildContext context, DailyFileProvider dailyFileProvider, String currentDate) {
-    final dailyFile = dailyFileProvider.getDailyFile(currentDate);
-    if (dailyFile == null || dailyFile.content.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No content to refile')),
-      );
-      return;
-    }
-
-    final events = dailyFileProvider.getCalendarEvents(currentDate);
-    final tasks = MarkdownParser.parseTasks(dailyFile.content);
-    final notes = MarkdownParser.parseNotes(dailyFile.content);
-
-    if (events.isEmpty && tasks.isEmpty && notes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No items to refile')),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => _RefileDialog(
-        currentDate: currentDate,
-        events: events,
-        tasks: tasks,
-        notes: notes,
-        onRefile: (targetDate, items) {
-          _performRefile_removed(context, dailyFileProvider, currentDate, targetDate, items);
-        },
-      ),
-    );
-  }
-
-  void _performRefile_removed(BuildContext context, DailyFileProvider dailyFileProvider,
-      String currentDate, String targetDate, List<RefileItem> items) {
-    final dailyFile = dailyFileProvider.getDailyFile(currentDate);
-    if (dailyFile == null) return;
-
-    // Get target daily file
-    final targetDailyFile = dailyFileProvider.getDailyFile(targetDate);
-    final targetContent = targetDailyFile?.content ?? '';
-
-    // Remove items from current file
-    String newCurrentContent = dailyFile.content;
-    for (final item in items) {
-      newCurrentContent = _removeItemFromContent(newCurrentContent, item);
-    }
-
-    // Add items to target file
-    String newTargetContent = targetContent;
-    if (newTargetContent.isNotEmpty && !newTargetContent.endsWith('\n')) {
-      newTargetContent += '\n';
-    }
-
-    for (final item in items) {
-      newTargetContent += '${item.content}\n';
-    }
-
-    // Save both files
-    dailyFileProvider.saveDailyFile(context, currentDate, newCurrentContent);
-    dailyFileProvider.saveDailyFile(context, targetDate, newTargetContent);
-
-    // Refresh the UI
-    setState(() {});
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                'Moved ${items.length} item(s) to ${_formatDisplayDate(_parseDateFromString(targetDate))}')),
-      );
-    }
   }
 
   String _removeItemFromContent(String content, RefileItem item) {
@@ -619,8 +532,8 @@ class _CalendarViewState extends State<CalendarView> {
     return DateTime(year, month, day);
   }
 
-  void _showRefillDialog(
-      BuildContext context, DailyFileProvider dailyFileProvider, String currentDate) {
+  void _showRefillDialog(BuildContext context,
+      DailyFileProvider dailyFileProvider, String currentDate) {
     final currentDateTime = _parseDateFromString(currentDate);
 
     // Collect all undone todos from previous days up to the selected date
@@ -659,7 +572,8 @@ class _CalendarViewState extends State<CalendarView> {
       builder: (context) => _RefillDialog(
         undoneTodos: undoneTodos,
         onRefill: (selectedTodos) {
-          _performRefill(context, dailyFileProvider, selectedTodos, currentDate);
+          _performRefill(
+              context, dailyFileProvider, selectedTodos, currentDate);
         },
       ),
     );
@@ -744,191 +658,6 @@ class RefillTodo {
     required this.sourceDate,
     required this.sourceDateDisplay,
   });
-}
-
-class _RefileDialog extends StatefulWidget {
-  final String currentDate;
-  final List<CalendarEvent> events;
-  final List<TaskItem> tasks;
-  final List<String> notes;
-  final Function(String, List<RefileItem>) onRefile;
-
-  const _RefileDialog({
-    required this.currentDate,
-    required this.events,
-    required this.tasks,
-    required this.notes,
-    required this.onRefile,
-  });
-
-  @override
-  State<_RefileDialog> createState() => _RefileDialogState();
-}
-
-class _RefileDialogState extends State<_RefileDialog> {
-  DateTime _selectedDate = DateTime.now();
-  final Map<String, bool> _selectedItems = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedDate = _parseDateFromString(widget.currentDate);
-  }
-
-  DateTime _parseDateFromString(String dateString) {
-    final year = int.parse(dateString.substring(0, 4));
-    final month = int.parse(dateString.substring(4, 6));
-    final day = int.parse(dateString.substring(6, 8));
-    return DateTime(year, month, day);
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Refile Items'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Date picker
-            ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('Target Date'),
-              subtitle: Text(
-                  '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}'),
-              trailing: const Icon(Icons.arrow_drop_down),
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: _selectedDate,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2030),
-                );
-                if (date != null) {
-                  setState(() {
-                    _selectedDate = date;
-                  });
-                }
-              },
-            ),
-            const Divider(),
-
-            // Items to refile
-            const Text('Select items to move:',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-
-            // Events
-            if (widget.events.isNotEmpty) ...[
-              const Text('Events:',
-                  style: TextStyle(fontWeight: FontWeight.w500)),
-              ...widget.events.map((CalendarEvent event) {
-                final eventKey = '${event.formattedTime} ${event.displayTitle}';
-                return CheckboxListTile(
-                  title: Text(eventKey),
-                  value: _selectedItems[eventKey] ?? false,
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedItems[eventKey] = value ?? false;
-                    });
-                  },
-                  dense: true,
-                );
-              }),
-            ],
-
-            // Tasks
-            if (widget.tasks.isNotEmpty) ...[
-              const Text('Tasks:',
-                  style: TextStyle(fontWeight: FontWeight.w500)),
-              ...widget.tasks.map((task) => CheckboxListTile(
-                    title: Text(
-                        '${task.isCompleted ? "[x]" : "[ ]"} ${task.text}'),
-                    value: _selectedItems[task.text] ?? false,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedItems[task.text] = value ?? false;
-                      });
-                    },
-                    dense: true,
-                  )),
-            ],
-
-            // Notes
-            if (widget.notes.isNotEmpty) ...[
-              const Text('Notes:',
-                  style: TextStyle(fontWeight: FontWeight.w500)),
-              ...widget.notes.map((note) => CheckboxListTile(
-                    title: Text(note),
-                    value: _selectedItems[note] ?? false,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedItems[note] = value ?? false;
-                      });
-                    },
-                    dense: true,
-                  )),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () {
-            final selectedItems = <RefileItem>[];
-
-            // Collect selected events
-            for (final event in widget.events) {
-              final eventKey = '${event.formattedTime} ${event.displayTitle}';
-              if (_selectedItems[eventKey] == true) {
-                // Use the original title which includes @HH:MM
-                final eventContent = event.title;
-                if (event.description.isNotEmpty) {
-                  selectedItems.add(RefileItem(
-                      content: '$eventContent\n${event.description}',
-                      type: 'event'));
-                } else {
-                  selectedItems
-                      .add(RefileItem(content: eventContent, type: 'event'));
-                }
-              }
-            }
-
-            // Collect selected tasks
-            for (final task in widget.tasks) {
-              if (_selectedItems[task.text] == true) {
-                selectedItems.add(RefileItem(
-                    content: '- [${task.isCompleted ? "x" : " "}] ${task.text}',
-                    type: 'task'));
-              }
-            }
-
-            // Collect selected notes
-            for (final note in widget.notes) {
-              if (_selectedItems[note] == true) {
-                selectedItems.add(RefileItem(content: note, type: 'note'));
-              }
-            }
-
-            if (selectedItems.isNotEmpty) {
-              widget.onRefile(_formatDate(_selectedDate), selectedItems);
-              Navigator.of(context).pop();
-            }
-          },
-          child: const Text('Move'),
-        ),
-      ],
-    );
-  }
 }
 
 class _RefillDialog extends StatefulWidget {
@@ -1034,4 +763,3 @@ class _RefillDialogState extends State<_RefillDialog> {
     );
   }
 }
-

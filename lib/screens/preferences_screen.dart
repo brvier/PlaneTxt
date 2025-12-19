@@ -41,7 +41,8 @@ class PreferencesScreen extends StatelessWidget {
                   return SwitchListTile(
                     secondary: const Icon(Icons.widgets),
                     title: const Text('Widget Dark Theme'),
-                    subtitle: const Text('Use dark theme for home screen widget'),
+                    subtitle:
+                        const Text('Use dark theme for home screen widget'),
                     value: themeProvider.widgetDarkTheme,
                     onChanged: (value) {
                       themeProvider.setWidgetTheme(value);
@@ -54,7 +55,8 @@ class PreferencesScreen extends StatelessWidget {
                   return ListTile(
                     leading: const Icon(Icons.opacity),
                     title: const Text('Widget Transparency'),
-                    subtitle: Text('${(themeProvider.widgetTransparency * 100).round()}% opaque'),
+                    subtitle: Text(
+                        '${(themeProvider.widgetTransparency * 100).round()}% opaque'),
                     trailing: SizedBox(
                       width: 200,
                       child: Slider(
@@ -62,7 +64,8 @@ class PreferencesScreen extends StatelessWidget {
                         min: 0.1,
                         max: 1.0,
                         divisions: 9,
-                        label: '${(themeProvider.widgetTransparency * 100).round()}%',
+                        label:
+                            '${(themeProvider.widgetTransparency * 100).round()}%',
                         onChanged: (value) {
                           themeProvider.setWidgetTransparency(value);
                         },
@@ -147,7 +150,8 @@ class PreferencesScreen extends StatelessWidget {
                         ? 'No pattern set'
                         : 'Pattern: ${themeProvider.todoHeaderRegex}'),
                     trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () => _showHeaderRegexDialog(context, themeProvider, true),
+                    onTap: () =>
+                        _showHeaderRegexDialog(context, themeProvider, true),
                   );
                 },
               ),
@@ -160,7 +164,8 @@ class PreferencesScreen extends StatelessWidget {
                         ? 'No pattern set'
                         : 'Pattern: ${themeProvider.eventHeaderRegex}'),
                     trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () => _showHeaderRegexDialog(context, themeProvider, false),
+                    onTap: () =>
+                        _showHeaderRegexDialog(context, themeProvider, false),
                   );
                 },
               ),
@@ -209,7 +214,9 @@ class PreferencesScreen extends StatelessWidget {
                 builder: (context, snapshot) {
                   final version = snapshot.data?.version ?? 'Unknown';
                   final buildNumber = snapshot.data?.buildNumber ?? '';
-                  final versionString = buildNumber.isNotEmpty ? '$version+$buildNumber' : version;
+                  final versionString = buildNumber.isNotEmpty
+                      ? '$version+$buildNumber'
+                      : version;
                   return ListTile(
                     leading: const Icon(Icons.info),
                     title: const Text('Version'),
@@ -266,64 +273,51 @@ class PreferencesScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Choose Theme'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('System'),
-              subtitle: const Text('Follow system setting'),
-              leading: Radio<ThemeMode>(
-                value: ThemeMode.system,
-                groupValue: themeProvider.themeMode,
-                onChanged: (value) {
-                  if (value != null) {
-                    themeProvider.setThemeMode(value);
-                    Navigator.of(context).pop();
-                  }
+        content: RadioGroup<ThemeMode>(
+          groupValue: themeProvider.themeMode,
+          onChanged: (value) {
+            if (value == null) return;
+            themeProvider.setThemeMode(value);
+            Navigator.of(context).pop();
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('System'),
+                subtitle: const Text('Follow system setting'),
+                leading: const Radio<ThemeMode>(
+                  value: ThemeMode.system,
+                ),
+                onTap: () {
+                  themeProvider.setThemeMode(ThemeMode.system);
+                  Navigator.of(context).pop();
                 },
               ),
-              onTap: () {
-                themeProvider.setThemeMode(ThemeMode.system);
-                Navigator.of(context).pop();
-              },
-            ),
-            ListTile(
-              title: const Text('Light'),
-              subtitle: const Text('Always use light theme'),
-              leading: Radio<ThemeMode>(
-                value: ThemeMode.light,
-                groupValue: themeProvider.themeMode,
-                onChanged: (value) {
-                  if (value != null) {
-                    themeProvider.setThemeMode(value);
-                    Navigator.of(context).pop();
-                  }
+              ListTile(
+                title: const Text('Light'),
+                subtitle: const Text('Always use light theme'),
+                leading: const Radio<ThemeMode>(
+                  value: ThemeMode.light,
+                ),
+                onTap: () {
+                  themeProvider.setThemeMode(ThemeMode.light);
+                  Navigator.of(context).pop();
                 },
               ),
-              onTap: () {
-                themeProvider.setThemeMode(ThemeMode.light);
-                Navigator.of(context).pop();
-              },
-            ),
-            ListTile(
-              title: const Text('Dark'),
-              subtitle: const Text('Always use dark theme'),
-              leading: Radio<ThemeMode>(
-                value: ThemeMode.dark,
-                groupValue: themeProvider.themeMode,
-                onChanged: (value) {
-                  if (value != null) {
-                    themeProvider.setThemeMode(value);
-                    Navigator.of(context).pop();
-                  }
+              ListTile(
+                title: const Text('Dark'),
+                subtitle: const Text('Always use dark theme'),
+                leading: const Radio<ThemeMode>(
+                  value: ThemeMode.dark,
+                ),
+                onTap: () {
+                  themeProvider.setThemeMode(ThemeMode.dark);
+                  Navigator.of(context).pop();
                 },
               ),
-              onTap: () {
-                themeProvider.setThemeMode(ThemeMode.dark);
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -422,7 +416,8 @@ class PreferencesScreen extends StatelessWidget {
         return;
       }
 
-      final String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+      final String? selectedDirectory =
+          await FilePicker.platform.getDirectoryPath();
 
       if (selectedDirectory != null && context.mounted) {
         // Use the selected directory directly without creating an Org subfolder
@@ -433,7 +428,7 @@ class PreferencesScreen extends StatelessWidget {
           final testFile = File('${selectedDir.path}/.test_write');
           await testFile.writeAsString('test');
           await testFile.delete();
-          
+
           // Set the storage path
           themeProvider.setStoragePath(selectedDir.path);
           Navigator.of(context).pop();
@@ -444,7 +439,8 @@ class PreferencesScreen extends StatelessWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Storage location changed to: ${selectedDir.path}'),
+                content:
+                    Text('Storage location changed to: ${selectedDir.path}'),
                 action: SnackBarAction(
                   label: 'OK',
                   onPressed: () {},
@@ -456,7 +452,8 @@ class PreferencesScreen extends StatelessWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Cannot write to selected directory: $e\nUsing default location instead.'),
+                content: Text(
+                    'Cannot write to selected directory: $e\nUsing default location instead.'),
                 backgroundColor: Colors.orange,
                 duration: const Duration(seconds: 5),
               ),
@@ -478,26 +475,27 @@ class PreferencesScreen extends StatelessWidget {
 
   Future<bool> _showPermissionExplanationDialog(BuildContext context) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Storage Permission Required'),
-        content: const Text(
-          'To select a custom storage location, Planova needs permission to access all files on your device. '
-          'This is required for Android 11 and later versions.\n\n'
-          'You will be redirected to system settings to grant this permission.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Storage Permission Required'),
+            content: const Text(
+              'To select a custom storage location, Planova needs permission to access all files on your device. '
+              'This is required for Android 11 and later versions.\n\n'
+              'You will be redirected to system settings to grant this permission.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Continue'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   void _resetStorageLocation(
@@ -540,8 +538,9 @@ class PreferencesScreen extends StatelessWidget {
     final packageInfo = await PackageInfo.fromPlatform();
     final version = packageInfo.version;
     final buildNumber = packageInfo.buildNumber;
-    final versionString = buildNumber.isNotEmpty ? '$version+$buildNumber' : version;
-    
+    final versionString =
+        buildNumber.isNotEmpty ? '$version+$buildNumber' : version;
+
     showAboutDialog(
       context: context,
       applicationName: 'Planova',
@@ -608,8 +607,10 @@ class PreferencesScreen extends StatelessWidget {
     );
   }
 
-  void _showHeaderRegexDialog(BuildContext context, ThemeProvider themeProvider, bool isTodo) {
-    final currentRegex = isTodo ? themeProvider.todoHeaderRegex : themeProvider.eventHeaderRegex;
+  void _showHeaderRegexDialog(
+      BuildContext context, ThemeProvider themeProvider, bool isTodo) {
+    final currentRegex =
+        isTodo ? themeProvider.todoHeaderRegex : themeProvider.eventHeaderRegex;
     final controller = TextEditingController(text: currentRegex);
     final title = isTodo ? 'Todo Header Pattern' : 'Event Header Pattern';
     final description = isTodo
@@ -706,4 +707,3 @@ class PreferencesScreen extends StatelessWidget {
     );
   }
 }
-

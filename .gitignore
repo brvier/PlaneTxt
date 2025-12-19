@@ -46,5 +46,31 @@ app.*.map.json
 
 # Signing keys (DO NOT COMMIT!)
 /android/key.properties
+/android/app/key.properties
 /android/*.keystore
 /android/*.jks
+/android/app/*.keystore
+/android/app/*.jks
+
+# Android (generated)
+/android/.gradle/
+/android/local.properties
+/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# iOS (generated)
+/ios/Flutter/ephemeral/
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
+
+# macOS (generated)
+/macos/Flutter/ephemeral/
+/macos/Flutter/flutter_export_environment.sh
+
+# Linux (generated)
+/linux/flutter/ephemeral/
+
+# Windows (generated)
+/windows/flutter/ephemeral/
+
+# Plugin symlinks (generated)
+**/.plugin_symlinks/

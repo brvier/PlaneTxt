@@ -46,6 +46,28 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // Check if date changed while app was in background
       context.read<DailyFileProvider>().checkDateChangeAndUpdateWidget();
+
+      // Perform incremental refresh to catch any external file changes
+      _performIncrementalRefresh();
+    }
+  }
+
+  /// Perform incremental refresh after a delay to avoid blocking UI
+  Future<void> _performIncrementalRefresh() async {
+    // Small delay to ensure app is fully resumed
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    try {
+      Log.d('🚀 MainScreen: Performing incremental refresh on app resume');
+
+      await Future.wait([
+        context.read<DailyFileProvider>().loadDailyFilesIncremental(),
+        context.read<NoteFileProvider>().loadNoteFilesIncremental(),
+      ]);
+
+      Log.d('🚀 MainScreen: Incremental refresh completed');
+    } catch (e) {
+      Log.e('🚀 MainScreen: Error during incremental refresh', error: e);
     }
   }
 
@@ -67,13 +89,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             '🚀 MainScreen: Dailies directory not initialized; skipping file monitor');
       }
 
-      // Initialize daily files
+      // Initialize daily files (full load on first startup)
       Log.i('🚀 MainScreen: Loading daily files...');
-      await context.read<DailyFileProvider>().loadDailyFiles();
+      await context.read<DailyFileProvider>().loadDailyFiles(forceReload: true);
 
-      // Initialize notes
+      // Initialize notes (full load on first startup)
       Log.i('🚀 MainScreen: Loading note files...');
-      await context.read<NoteFileProvider>().loadNoteFiles();
+      await context.read<NoteFileProvider>().loadNoteFiles(forceReload: true);
 
       // Start widget update timers
       context.read<DailyFileProvider>().startWidgetUpdateTimer();
@@ -81,7 +103,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       Log.i('🚀 MainScreen: All providers initialized successfully');
     } catch (e) {
-      Log.e('❌ MainScreen: Error initializing providers', e);
+      Log.e('❌ MainScreen: Error initializing providers', error: e);
       rethrow;
     }
   }

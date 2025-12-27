@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:planova/constants/app_constants.dart';
 import 'package:planova/services/widget_service.dart';
 import 'package:planova/themes/app_themes.dart';
 import 'package:planova/utils/logger.dart';
@@ -18,8 +19,12 @@ class ThemeProvider extends ChangeNotifier {
   static const String _appThemeKey = 'app_theme';
   static const String _storagePathKey = 'storage_path';
   static const String _templateKey = 'daily_template';
-  static const String _widgetThemeKey = 'flutter.widget_dark_theme';
-  static const String _widgetTransparencyKey = 'flutter.widget_transparency';
+  // Legacy keys used by older versions (kept for migration).
+  // Older code incorrectly included the `flutter.` prefix, which ends up being
+  // double-prefixed on Android (`flutter.flutter.*`).
+  static const String _legacyWidgetThemeKey = 'flutter.widget_dark_theme';
+  static const String _legacyWidgetTransparencyKey =
+      'flutter.widget_transparency';
   static const String _todoHeaderRegexKey = 'todo_header_regex';
   static const String _eventHeaderRegexKey = 'event_header_regex';
 
@@ -84,12 +89,40 @@ class ThemeProvider extends ChangeNotifier {
 
   Future<void> _loadWidgetTheme() async {
     final prefs = await SharedPreferences.getInstance();
-    _widgetDarkTheme = prefs.getBool(_widgetThemeKey) ?? false;
+
+    final current = prefs.getBool(AppConstants.widgetThemeKey);
+    if (current != null) {
+      _widgetDarkTheme = current;
+      return;
+    }
+
+    final legacy = prefs.getBool(_legacyWidgetThemeKey);
+    if (legacy != null) {
+      _widgetDarkTheme = legacy;
+      await prefs.setBool(AppConstants.widgetThemeKey, legacy);
+      return;
+    }
+
+    _widgetDarkTheme = false;
   }
 
   Future<void> _loadWidgetTransparency() async {
     final prefs = await SharedPreferences.getInstance();
-    _widgetTransparency = prefs.getDouble(_widgetTransparencyKey) ?? 1.0;
+
+    final current = prefs.getDouble(AppConstants.widgetTransparencyKey);
+    if (current != null) {
+      _widgetTransparency = current;
+      return;
+    }
+
+    final legacy = prefs.getDouble(_legacyWidgetTransparencyKey);
+    if (legacy != null) {
+      _widgetTransparency = legacy;
+      await prefs.setDouble(AppConstants.widgetTransparencyKey, legacy);
+      return;
+    }
+
+    _widgetTransparency = 1.0;
   }
 
   Future<void> _loadTodoHeaderRegex() async {
@@ -126,6 +159,8 @@ class ThemeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_appThemeKey, theme.index);
     notifyListeners();
+
+    await WidgetService.updateWidgetColors();
   }
 
   Future<void> setStoragePath(String? path) async {
@@ -155,7 +190,7 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> setWidgetTheme(bool isDark) async {
     _widgetDarkTheme = isDark;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_widgetThemeKey, isDark);
+    await prefs.setBool(AppConstants.widgetThemeKey, isDark);
     notifyListeners();
 
     // Update widget with new theme
@@ -165,7 +200,8 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> setWidgetTransparency(double transparency) async {
     _widgetTransparency = transparency.clamp(0.0, 1.0);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(_widgetTransparencyKey, _widgetTransparency);
+    await prefs.setDouble(
+        AppConstants.widgetTransparencyKey, _widgetTransparency);
     notifyListeners();
 
     // Update widget with new transparency
@@ -224,7 +260,7 @@ class ThemeProvider extends ChangeNotifier {
       // The widget will use the existing content with the new theme
       await WidgetService.updateWidgetTheme(isDarkTheme);
     } catch (e) {
-      Log.e('❌ ThemeProvider: Error updating widget with new theme', e);
+      Log.e('❌ ThemeProvider: Error updating widget with new theme', error: e);
     }
   }
 
@@ -234,7 +270,8 @@ class ThemeProvider extends ChangeNotifier {
       // Update widget with new transparency
       await WidgetService.updateWidgetTransparency(transparency);
     } catch (e) {
-      Log.e('❌ ThemeProvider: Error updating widget with new transparency', e);
+      Log.e('❌ ThemeProvider: Error updating widget with new transparency',
+          error: e);
     }
   }
 }

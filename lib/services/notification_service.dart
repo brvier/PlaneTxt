@@ -68,7 +68,7 @@ class NotificationService {
       final status = await Permission.notification.request();
       return status.isGranted;
     } catch (e) {
-      Log.e('Warning: Could not request permissions', e);
+      Log.e('Warning: Could not request permissions', error: e);
       return false;
     }
   }
@@ -143,8 +143,7 @@ class NotificationService {
       tz.TZDateTime.from(notificationTime, tz.local),
       notificationDetails,
       payload: 'event_${date}_$id',
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
 
     Log.i('Scheduled notification for event: $title at $notificationTime');
@@ -223,7 +222,8 @@ class NotificationService {
               return generateEventId(event.displayTitle, event.time);
             }).toSet();
           } catch (e) {
-            Log.e('? NotificationService: Error parsing file $fileName', e);
+            Log.e('? NotificationService: Error parsing file $fileName',
+                error: e);
           }
         }
       }
@@ -273,7 +273,8 @@ class NotificationService {
             }
           }
         } catch (e) {
-          Log.e('? NotificationService: Error parsing date from payload', e);
+          Log.e('? NotificationService: Error parsing date from payload',
+              error: e);
         }
 
         // Check if the date file still exists
@@ -306,7 +307,7 @@ class NotificationService {
         Log.d('? NotificationService: All notifications are valid');
       }
     } catch (e) {
-      Log.e('? NotificationService: Error reviewing notifications', e);
+      Log.e('? NotificationService: Error reviewing notifications', error: e);
     }
   }
 }

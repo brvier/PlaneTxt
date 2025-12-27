@@ -50,16 +50,27 @@ class DailyContentHelper {
       final beforeInsert = lines.sublist(0, insertIndex).join('\n');
       final afterInsert = lines.sublist(insertIndex).join('\n');
 
+      // Check if the next line after insertion starts with a header (#)
+      final nextLineAfterInsert =
+          afterInsert.split('\n').firstOrNull?.trim() ?? '';
+      final isNextLineHeader = nextLineAfterInsert.startsWith('#');
+
       // If there's content after, add a newline before it
       if (afterInsert.isNotEmpty) {
-        return '$beforeInsert\n$newContent\n$afterInsert';
+        // Add extra newline if next line is a header to separate sections
+        if (isNextLineHeader) {
+          return '$beforeInsert\n$newContent\n\n$afterInsert';
+        } else {
+          return '$beforeInsert\n$newContent\n$afterInsert';
+        }
       } else {
         // If we're at the end, just append
         return '$beforeInsert\n$newContent';
       }
     } catch (e) {
       // If regex is invalid, fall back to appending
-      Log.e('?? DailyContentHelper: Invalid regex pattern "$headerRegex"', e);
+      Log.e('?? DailyContentHelper: Invalid regex pattern "$headerRegex"',
+          error: e);
       return content.isEmpty ? newContent : '$content\n\n$newContent';
     }
   }

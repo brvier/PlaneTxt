@@ -86,7 +86,7 @@ class MarkdownParser {
             date: date,
           ));
         } catch (e) {
-          Log.e('MarkdownParser: Error parsing event line: $line', e);
+          Log.e('MarkdownParser: Error parsing event line: $line', error: e);
         }
       }
     }

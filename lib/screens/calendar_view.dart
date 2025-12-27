@@ -247,10 +247,20 @@ class _CalendarViewState extends State<CalendarView> {
       DateTime focusedDay, DailyFileProvider dailyFileProvider,
       {bool isSelected = false, bool isToday = false}) {
     final dateString = _formatDate(day);
-    final undoneTodoCount = dailyFileProvider.getUndoneTodoCount(dateString);
-    final hasTodos = dailyFileProvider.hasTodos(dateString);
-    final hasDailyFile = dailyFileProvider.getDailyFile(dateString) != null;
-    final hasCalendarEvents = dailyFileProvider.hasCalendarEvents(dateString);
+    // Optimize: Get daily file once and reuse it for all checks
+    final dailyFile = dailyFileProvider.getDailyFile(dateString);
+    final undoneTodoCount = dailyFile != null && dailyFile.content.isNotEmpty
+        ? MarkdownParser.parseTasks(dailyFile.content)
+            .where((task) => !task.isCompleted)
+            .length
+        : 0;
+    final hasTodos = dailyFile != null && dailyFile.content.isNotEmpty
+        ? MarkdownParser.parseTasks(dailyFile.content).isNotEmpty
+        : false;
+    final hasDailyFile = dailyFile != null;
+    final hasCalendarEvents = dailyFile != null && dailyFile.content.isNotEmpty
+        ? MarkdownParser.parseEvents(dateString, dailyFile.content).isNotEmpty
+        : false;
     final isOutsideMonth = day.month != focusedDay.month;
 
     return CalendarDayWidget(

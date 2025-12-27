@@ -29,10 +29,11 @@ class DailyFileProvider extends ChangeNotifier {
   List<DailyFile> get dailyFiles => List.unmodifiable(_dailyFiles);
   String get selectedDate => _selectedDate;
 
-  Future<void> loadDailyFiles() async {
-    Log.i('📅 DailyFileProvider: Loading daily files...');
+  Future<void> loadDailyFiles({bool forceReload = false}) async {
+    Log.i(
+        '📅 DailyFileProvider: Loading daily files (forceReload: $forceReload)...');
     try {
-      _dailyFiles = await _dailyRepository.loadAll();
+      _dailyFiles = await _dailyRepository.loadAll(forceReload: forceReload);
       Log.i('📅 DailyFileProvider: Loaded ${_dailyFiles.length} daily files');
 
       // Update widget with today's content
@@ -40,7 +41,26 @@ class DailyFileProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      Log.e('❌ DailyFileProvider: Error loading daily files', e);
+      Log.e('❌ DailyFileProvider: Error loading daily files', error: e);
+      rethrow;
+    }
+  }
+
+  /// Incremental update - only load modified daily files
+  Future<void> loadDailyFilesIncremental() async {
+    Log.i('📅 DailyFileProvider: Loading incremental daily file changes...');
+    try {
+      _dailyFiles = await _dailyRepository.loadIncremental();
+      Log.i(
+          '📅 DailyFileProvider: Incremental load completed, ${_dailyFiles.length} total files');
+
+      // Update widget with today's content
+      await _updateWidget();
+
+      notifyListeners();
+    } catch (e) {
+      Log.e('❌ DailyFileProvider: Error in incremental daily file load',
+          error: e);
       rethrow;
     }
   }
@@ -63,14 +83,22 @@ class DailyFileProvider extends ChangeNotifier {
       // Update widget with today's content
       await _updateWidget();
 
-      // Schedule event notifications
-      final eventProvider = Provider.of<EventProvider>(context, listen: false);
-      await eventProvider.scheduleEventNotifications(date, content);
+      // Schedule event notifications (only if context is still valid)
+      try {
+        final eventProvider =
+            Provider.of<EventProvider>(context, listen: false);
+        await eventProvider.scheduleEventNotifications(date, content);
+      } catch (e) {
+        // Context might be disposed, log but don't fail
+        Log.w(
+            '⚠️  DailyFileProvider: Could not access EventProvider, context may be disposed',
+            error: e);
+      }
 
       Log.d('📅 DailyFileProvider: Saved daily file for $date');
       notifyListeners();
     } catch (e) {
-      Log.e('❌ DailyFileProvider: Error saving daily file', e);
+      Log.e('❌ DailyFileProvider: Error saving daily file', error: e);
       rethrow;
     }
   }
@@ -182,7 +210,7 @@ class DailyFileProvider extends ChangeNotifier {
 
       Log.i('📱 DailyFileProvider: Widget updated successfully');
     } catch (e) {
-      Log.e('❌ DailyFileProvider: Error updating widget', e);
+      Log.e('❌ DailyFileProvider: Error updating widget', error: e);
     }
   }
 
@@ -194,7 +222,7 @@ class DailyFileProvider extends ChangeNotifier {
         await loadDailyFiles();
         Log.d('📱 DailyFileProvider: Periodic widget update completed');
       } catch (e) {
-        Log.e('❌ DailyFileProvider: Error in periodic widget update', e);
+        Log.e('❌ DailyFileProvider: Error in periodic widget update', error: e);
       }
     });
     Log.i(

@@ -36,7 +36,7 @@ class EventProvider extends ChangeNotifier {
       Log.i(
           '📅 EventProvider: Scheduled ${events.length} event notifications for $date');
     } catch (e) {
-      Log.e('❌ EventProvider: Error scheduling event notifications', e);
+      Log.e('❌ EventProvider: Error scheduling event notifications', error: e);
       rethrow;
     }
   }
@@ -48,7 +48,7 @@ class EventProvider extends ChangeNotifier {
       Log.d('📅 EventProvider: Parsed ${events.length} events from content');
       return events;
     } catch (e) {
-      Log.e('❌ EventProvider: Error parsing events', e);
+      Log.e('❌ EventProvider: Error parsing events', error: e);
       return [];
     }
   }

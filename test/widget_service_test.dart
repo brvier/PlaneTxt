@@ -70,7 +70,10 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('widget_daily_content'), isNotEmpty);
       expect(prefs.getString('widget_date'), equals('20241201'));
-      expect(prefs.getBool('flutter.widget_dark_theme'), isFalse);
+      expect(prefs.getBool('widget_dark_theme'), isFalse);
+      expect(prefs.getInt('widget_background_color'), isNotNull);
+      expect(prefs.getInt('widget_title_color'), isNotNull);
+      expect(prefs.getInt('widget_text_color'), isNotNull);
     });
 
     test('updateWithDailyFile with null does nothing', () async {

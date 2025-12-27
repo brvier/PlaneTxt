@@ -23,10 +23,11 @@ class NoteFileProvider extends ChangeNotifier {
 
   List<NoteFile> get noteFiles => List.unmodifiable(_noteFiles);
 
-  Future<void> loadNoteFiles() async {
-    Log.i('📝 NoteFileProvider: Loading note files...');
+  Future<void> loadNoteFiles({bool forceReload = false}) async {
+    Log.i(
+        '📝 NoteFileProvider: Loading note files (forceReload: $forceReload)...');
     try {
-      _noteFiles = await _noteRepository.loadAll();
+      _noteFiles = await _noteRepository.loadAll(forceReload: forceReload);
       Log.i('📝 NoteFileProvider: Loaded ${_noteFiles.length} note files');
 
       // Update widget with recent notes
@@ -34,7 +35,26 @@ class NoteFileProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      Log.e('❌ NoteFileProvider: Error loading note files', e);
+      Log.e('❌ NoteFileProvider: Error loading note files', error: e);
+      rethrow;
+    }
+  }
+
+  /// Incremental update - only load modified note files
+  Future<void> loadNoteFilesIncremental() async {
+    Log.i('📝 NoteFileProvider: Loading incremental note file changes...');
+    try {
+      _noteFiles = await _noteRepository.loadIncremental();
+      Log.i(
+          '📝 NoteFileProvider: Incremental load completed, ${_noteFiles.length} total files');
+
+      // Update widget with recent notes
+      await _updateWidget();
+
+      notifyListeners();
+    } catch (e) {
+      Log.e('❌ NoteFileProvider: Error in incremental note file load',
+          error: e);
       rethrow;
     }
   }
@@ -49,7 +69,7 @@ class NoteFileProvider extends ChangeNotifier {
 
       Log.d('📝 NoteFileProvider: Saved note file $relativePath');
     } catch (e) {
-      Log.e('❌ NoteFileProvider: Error saving note file', e);
+      Log.e('❌ NoteFileProvider: Error saving note file', error: e);
       rethrow;
     }
   }
@@ -101,7 +121,7 @@ class NoteFileProvider extends ChangeNotifier {
           '📝 NoteFileProvider: Successfully renamed note to $newRelativePath');
       return true;
     } catch (e) {
-      Log.e('❌ NoteFileProvider: Error renaming note', e);
+      Log.e('❌ NoteFileProvider: Error renaming note', error: e);
       return false;
     }
   }
@@ -120,7 +140,7 @@ class NoteFileProvider extends ChangeNotifier {
       Log.d('📝 NoteFileProvider: Deleted note file ${noteFile.relativePath}');
       notifyListeners();
     } catch (e) {
-      Log.e('❌ NoteFileProvider: Error deleting note file', e);
+      Log.e('❌ NoteFileProvider: Error deleting note file', error: e);
       rethrow;
     }
   }
@@ -138,7 +158,7 @@ class NoteFileProvider extends ChangeNotifier {
       await WidgetService.updateWithNotes(_noteFiles);
       Log.i('📱 NoteFileProvider: Widget updated successfully');
     } catch (e) {
-      Log.e('❌ NoteFileProvider: Error updating widget', e);
+      Log.e('❌ NoteFileProvider: Error updating widget', error: e);
     }
   }
 
@@ -150,7 +170,7 @@ class NoteFileProvider extends ChangeNotifier {
         await loadNoteFiles();
         Log.d('📱 NoteFileProvider: Periodic widget update completed');
       } catch (e) {
-        Log.e('❌ NoteFileProvider: Error in periodic widget update', e);
+        Log.e('❌ NoteFileProvider: Error in periodic widget update', error: e);
       }
     });
     Log.i(

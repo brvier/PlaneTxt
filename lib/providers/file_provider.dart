@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:planova/constants/app_constants.dart';
 import 'package:planova/models/calendar_event.dart';
 import 'package:planova/models/daily_file.dart';
 import 'package:planova/models/note_file.dart';
@@ -70,13 +71,13 @@ class FileProvider extends ChangeNotifier {
       Log.i('📁 FileProvider: Directory initialization completed successfully');
       notifyListeners();
     } catch (e) {
-      Log.e('❌ FileProvider: Error initializing directories', e);
+      Log.e('❌ FileProvider: Error initializing directories', error: e);
       // Attempt fallback if not already handled by StorageService
     }
   }
 
-  Future<void> loadDailyFiles() async {
-    _dailyFiles = await _dailyRepository.loadAll();
+  Future<void> loadDailyFiles({bool forceReload = false}) async {
+    _dailyFiles = await _dailyRepository.loadAll(forceReload: forceReload);
 
     // Update widget with today's content
     await _updateWidget();
@@ -84,9 +85,37 @@ class FileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadNoteFiles() async {
-    _noteFiles = await _noteRepository.loadAll();
+  Future<void> loadNoteFiles({bool forceReload = false}) async {
+    _noteFiles = await _noteRepository.loadAll(forceReload: forceReload);
     notifyListeners();
+  }
+
+  /// Incremental update for daily files - only load modified files
+  Future<void> loadDailyFilesIncremental() async {
+    _dailyFiles = await _dailyRepository.loadIncremental();
+
+    // Update widget with today's content
+    await _updateWidget();
+
+    notifyListeners();
+  }
+
+  /// Incremental update for note files - only load modified files
+  Future<void> loadNoteFilesIncremental() async {
+    _noteFiles = await _noteRepository.loadIncremental();
+    notifyListeners();
+  }
+
+  /// Refresh both repositories incrementally
+  Future<void> refreshIncremental() async {
+    Log.d('📁 FileProvider: Performing incremental refresh...');
+
+    await Future.wait([
+      loadDailyFilesIncremental(),
+      loadNoteFilesIncremental(),
+    ]);
+
+    Log.d('📁 FileProvider: Incremental refresh completed');
   }
 
   Future<void> saveDailyFile(String date, String content) async {
@@ -110,7 +139,7 @@ class FileProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      Log.e('❌ FileProvider: Error saving daily file', e);
+      Log.e('❌ FileProvider: Error saving daily file', error: e);
     }
   }
 
@@ -126,7 +155,7 @@ class FileProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      Log.e('❌ FileProvider: Error saving note file', e);
+      Log.e('❌ FileProvider: Error saving note file', error: e);
     }
   }
 
@@ -167,7 +196,7 @@ class FileProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      Log.e('❌ FileProvider: Error renaming note', e);
+      Log.e('❌ FileProvider: Error renaming note', error: e);
       return false;
     }
   }
@@ -267,13 +296,15 @@ class FileProvider extends ChangeNotifier {
           Log.w(
               '📱 FileProvider: Could not access ThemeProvider, falling back to SharedPreferences');
           final prefs = await SharedPreferences.getInstance();
-          isDarkTheme = prefs.getBool('flutter.widget_dark_theme') ?? false;
-          transparency = prefs.getDouble('flutter.widget_transparency') ?? 1.0;
+          isDarkTheme = prefs.getBool(AppConstants.widgetThemeKey) ?? false;
+          transparency =
+              prefs.getDouble(AppConstants.widgetTransparencyKey) ?? 1.0;
         }
       } else {
         final prefs = await SharedPreferences.getInstance();
-        isDarkTheme = prefs.getBool('flutter.widget_dark_theme') ?? false;
-        transparency = prefs.getDouble('flutter.widget_transparency') ?? 1.0;
+        isDarkTheme = prefs.getBool(AppConstants.widgetThemeKey) ?? false;
+        transparency =
+            prefs.getDouble(AppConstants.widgetTransparencyKey) ?? 1.0;
       }
 
       Log.d(
@@ -289,7 +320,7 @@ class FileProvider extends ChangeNotifier {
 
       Log.i('📱 FileProvider: Widget updated successfully');
     } catch (e) {
-      Log.e('❌ FileProvider: Error updating widget', e);
+      Log.e('❌ FileProvider: Error updating widget', error: e);
     }
   }
 
@@ -325,7 +356,7 @@ class FileProvider extends ChangeNotifier {
 
       Log.i('📅 Scheduled ${events.length} event notifications for $date');
     } catch (e) {
-      Log.e('❌ Error scheduling event notifications', e);
+      Log.e('❌ Error scheduling event notifications', error: e);
     }
   }
 
@@ -334,12 +365,25 @@ class FileProvider extends ChangeNotifier {
     _widgetUpdateTimer = Timer.periodic(_widgetUpdateInterval, (timer) async {
       Log.d('📱 FileProvider: Periodic widget update triggered');
       try {
-        await loadDailyFiles();
-        await loadNoteFiles();
+        // Use incremental loading for better performance
+        await refreshIncremental();
         await _updateWidget();
         Log.d('📱 FileProvider: Periodic widget update completed');
       } catch (e) {
-        Log.e('❌ FileProvider: Error in periodic widget update', e);
+        Log.e('❌ FileProvider: Error in periodic widget update', error: e);
+
+        // Fallback to full reload if incremental fails
+        try {
+          Log.w('📱 FileProvider: Falling back to full reload');
+          await Future.wait([
+            loadDailyFiles(forceReload: true),
+            loadNoteFiles(forceReload: true),
+          ]);
+          await _updateWidget();
+        } catch (fallbackError) {
+          Log.e('❌ FileProvider: Even fallback reload failed',
+              error: fallbackError);
+        }
       }
     });
     Log.i(

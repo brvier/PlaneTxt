@@ -92,7 +92,7 @@ class _QuickAddModalState extends State<QuickAddModal> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Type selection
             RadioGroup<QuickAddType>(
@@ -140,7 +140,7 @@ class _QuickAddModalState extends State<QuickAddModal> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             // Title input
             TextField(
@@ -151,7 +151,7 @@ class _QuickAddModalState extends State<QuickAddModal> {
               ),
               autofocus: true,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Time selection (only for events)
             if (_selectedType == QuickAddType.event) ...[
@@ -163,7 +163,7 @@ class _QuickAddModalState extends State<QuickAddModal> {
                   label: Text(_formatTime24Hour(_selectedTime)),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
             ],
 
             // Add button

@@ -1,6 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:planova/constants/app_constants.dart';
 import 'package:planova/models/daily_file.dart';
 import 'package:planova/models/note_file.dart';
+import 'package:planova/themes/app_themes.dart';
 import 'package:planova/utils/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,13 +13,87 @@ class WidgetService {
   static const String _notesContentKey = 'widget_notes_content';
   static const String _dateKey = 'widget_date';
 
+  static AppTheme _resolveAppTheme(SharedPreferences prefs) {
+    final rawIndex =
+        prefs.getInt(AppConstants.appThemeKey) ?? AppTheme.gruvbox.index;
+    if (rawIndex < 0 || rawIndex >= AppTheme.values.length) {
+      return AppTheme.gruvbox;
+    }
+    return AppTheme.values[rawIndex];
+  }
+
+  static ThemeData _resolveWidgetThemeData(
+    SharedPreferences prefs, {
+    bool? isDarkThemeOverride,
+  }) {
+    final appTheme = _resolveAppTheme(prefs);
+    final isDark = isDarkThemeOverride ??
+        prefs.getBool(AppConstants.widgetThemeKey) ??
+        false;
+
+    final themeData = AppThemes.getTheme(appTheme);
+    return isDark ? themeData.darkTheme : themeData.lightTheme;
+  }
+
+  static Future<void> _saveWidgetColors(
+    SharedPreferences prefs, {
+    bool? isDarkThemeOverride,
+  }) async {
+    final theme = _resolveWidgetThemeData(
+      prefs,
+      isDarkThemeOverride: isDarkThemeOverride,
+    );
+
+    final backgroundColor = theme.colorScheme.surfaceContainerHighest.value;
+    final titleColor = theme.colorScheme.primary.value;
+    final textColor = theme.colorScheme.onSurface.value;
+
+    await prefs.setInt(AppConstants.widgetBackgroundColorKey, backgroundColor);
+    await prefs.setInt(AppConstants.widgetTitleColorKey, titleColor);
+    await prefs.setInt(AppConstants.widgetTextColorKey, textColor);
+
+    await HomeWidget.saveWidgetData<int>(
+      AppConstants.widgetBackgroundColorKey,
+      backgroundColor,
+    );
+    await HomeWidget.saveWidgetData<int>(
+      AppConstants.widgetTitleColorKey,
+      titleColor,
+    );
+    await HomeWidget.saveWidgetData<int>(
+      AppConstants.widgetTextColorKey,
+      textColor,
+    );
+  }
+
+  static Future<void> updateWidgetColors() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await _saveWidgetColors(prefs);
+
+      await HomeWidget.saveWidgetData(
+        'widget_colors_updated',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+
+      await HomeWidget.updateWidget(
+        name: _widgetName,
+        androidName: 'PlanovaWidgetProvider',
+      );
+
+      Log.i('📱 WidgetService: Updated widget colors');
+    } catch (e) {
+      Log.e('❌ WidgetService: Error updating widget colors', error: e);
+    }
+  }
+
   /// Initialize the widget service
   static Future<void> initialize() async {
     try {
       await HomeWidget.setAppGroupId('group.fr.rvier.planova');
       Log.i('📱 WidgetService: Initialized successfully');
     } catch (e) {
-      Log.e('❌ WidgetService: Error initializing', e);
+      Log.e('❌ WidgetService: Error initializing', error: e);
     }
   }
 
@@ -39,16 +116,29 @@ class WidgetService {
 
       // Save theme preference if provided
       if (isDarkTheme != null) {
-        await prefs.setBool('flutter.widget_dark_theme', isDarkTheme);
+        await prefs.setBool(AppConstants.widgetThemeKey, isDarkTheme);
+        await HomeWidget.saveWidgetData<bool>(
+          AppConstants.widgetThemeKey,
+          isDarkTheme,
+        );
         Log.d('📱 WidgetService: Saved widget theme preference: $isDarkTheme');
       }
 
       // Save transparency preference if provided
       if (transparency != null) {
-        await prefs.setDouble('flutter.widget_transparency', transparency);
+        await prefs.setDouble(AppConstants.widgetTransparencyKey, transparency);
+        await HomeWidget.saveWidgetData<double>(
+          AppConstants.widgetTransparencyKey,
+          transparency,
+        );
         Log.d(
             '📱 WidgetService: Saved widget transparency preference: $transparency');
       }
+
+      await _saveWidgetColors(
+        prefs,
+        isDarkThemeOverride: isDarkTheme,
+      );
 
       // Update widget
       await HomeWidget.saveWidgetData<String>(_dailyContentKey, widgetContent);
@@ -61,7 +151,7 @@ class WidgetService {
       Log.i(
           '📱 WidgetService: Updated widget with daily content for ${dailyFile.date}');
     } catch (e) {
-      Log.e('❌ WidgetService: Error updating widget with daily file', e);
+      Log.e('❌ WidgetService: Error updating widget with daily file', error: e);
     }
   }
 
@@ -81,13 +171,26 @@ class WidgetService {
 
       // Save theme preference if provided
       if (isDarkTheme != null) {
-        await prefs.setBool('flutter.widget_dark_theme', isDarkTheme);
+        await prefs.setBool(AppConstants.widgetThemeKey, isDarkTheme);
+        await HomeWidget.saveWidgetData<bool>(
+          AppConstants.widgetThemeKey,
+          isDarkTheme,
+        );
       }
 
       // Save transparency preference if provided
       if (transparency != null) {
-        await prefs.setDouble('flutter.widget_transparency', transparency);
+        await prefs.setDouble(AppConstants.widgetTransparencyKey, transparency);
+        await HomeWidget.saveWidgetData<double>(
+          AppConstants.widgetTransparencyKey,
+          transparency,
+        );
       }
+
+      await _saveWidgetColors(
+        prefs,
+        isDarkThemeOverride: isDarkTheme,
+      );
 
       // Update widget
       await HomeWidget.saveWidgetData<String>(_notesContentKey, widgetContent);
@@ -99,7 +202,7 @@ class WidgetService {
       Log.i(
           '📱 WidgetService: Updated widget with ${recentNotes.length} recent notes');
     } catch (e) {
-      Log.e('❌ WidgetService: Error updating widget with notes', e);
+      Log.e('❌ WidgetService: Error updating widget with notes', error: e);
     }
   }
 
@@ -226,7 +329,16 @@ class WidgetService {
     try {
       // Save theme preference
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('flutter.widget_dark_theme', isDarkTheme);
+      await prefs.setBool(AppConstants.widgetThemeKey, isDarkTheme);
+      await HomeWidget.saveWidgetData<bool>(
+        AppConstants.widgetThemeKey,
+        isDarkTheme,
+      );
+
+      await _saveWidgetColors(
+        prefs,
+        isDarkThemeOverride: isDarkTheme,
+      );
 
       // Force widget update by updating the widget data
       await HomeWidget.saveWidgetData('widget_theme_updated',
@@ -241,7 +353,7 @@ class WidgetService {
       Log.i(
           '📱 WidgetService: Updated widget theme to ${isDarkTheme ? 'dark' : 'light'}');
     } catch (e) {
-      Log.e('❌ WidgetService: Error updating widget theme', e);
+      Log.e('❌ WidgetService: Error updating widget theme', error: e);
     }
   }
 
@@ -250,7 +362,11 @@ class WidgetService {
     try {
       // Save transparency preference
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('flutter.widget_transparency', transparency);
+      await prefs.setDouble(AppConstants.widgetTransparencyKey, transparency);
+      await HomeWidget.saveWidgetData<double>(
+        AppConstants.widgetTransparencyKey,
+        transparency,
+      );
 
       // Force widget update by updating the widget data
       await HomeWidget.saveWidgetData('widget_transparency_updated',
@@ -265,7 +381,7 @@ class WidgetService {
       Log.i(
           '📱 WidgetService: Updated widget transparency to ${(transparency * 100).round()}%');
     } catch (e) {
-      Log.e('❌ WidgetService: Error updating widget transparency', e);
+      Log.e('❌ WidgetService: Error updating widget transparency', error: e);
     }
   }
 
@@ -284,7 +400,7 @@ class WidgetService {
 
       Log.i('📱 WidgetService: Cleared widget data');
     } catch (e) {
-      Log.e('❌ WidgetService: Error clearing widget', e);
+      Log.e('❌ WidgetService: Error clearing widget', error: e);
     }
   }
 
@@ -295,7 +411,7 @@ class WidgetService {
       await clearWidget();
       Log.i('📱 WidgetService: Disposed widget resources');
     } catch (e) {
-      Log.e('❌ WidgetService: Error disposing widget', e);
+      Log.e('❌ WidgetService: Error disposing widget', error: e);
     }
   }
 }

@@ -35,7 +35,7 @@ class DirectoryProvider extends ChangeNotifier {
           '📁 DirectoryProvider: Directory initialization completed successfully');
       notifyListeners();
     } catch (e) {
-      Log.e('❌ DirectoryProvider: Error initializing directories', e);
+      Log.e('❌ DirectoryProvider: Error initializing directories', error: e);
       _initialized = false;
       rethrow;
     }

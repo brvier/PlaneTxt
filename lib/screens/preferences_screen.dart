@@ -9,6 +9,7 @@ import 'package:planova/providers/directory_provider.dart';
 import 'package:planova/providers/theme_provider.dart';
 import 'package:planova/utils/permission_helper.dart';
 import 'package:planova/widgets/theme_selector.dart';
+import 'package:planova/screens/widget_debug_screen.dart';
 import 'package:provider/provider.dart';
 
 class PreferencesScreen extends StatelessWidget {
@@ -196,6 +197,30 @@ class PreferencesScreen extends StatelessWidget {
                     title: const Text('Actual Storage Path'),
                     subtitle: Text(directoryProvider.getCurrentStoragePath()),
                     isThreeLine: true,
+                  );
+                },
+              ),
+            ],
+          ),
+
+          const Divider(),
+
+          // Debug section
+          _buildSection(
+            context,
+            title: 'Debug',
+            children: [
+              ListTile(
+                leading: const Icon(Icons.bug_report),
+                title: const Text('Widget Debug'),
+                subtitle: const Text('Test widget functionality'),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const WidgetDebugScreen(),
+                    ),
                   );
                 },
               ),

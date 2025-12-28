@@ -267,20 +267,20 @@ class WidgetService {
 
     final buffer = StringBuffer();
 
-    // Events section with icon and styling
+    // Events section with icon and styling (similar to daily view)
     if (events.isNotEmpty) {
-      buffer.writeln('🕐 Events');
+      buffer.writeln('📅 Events');
       for (final event in events) {
-        buffer.writeln('  • $event');
+        buffer.writeln('  ◦ $event');
       }
       buffer.writeln();
     }
 
-    // Tasks section with icon and styling
+    // Tasks section with icon and styling (similar to daily view)
     if (tasks.isNotEmpty) {
-      buffer.writeln('📋 Tasks');
+      buffer.writeln('✓ Tasks');
       for (final task in tasks) {
-        buffer.writeln('  $task');
+        buffer.writeln('  ◦ $task');
       }
     }
 
@@ -401,6 +401,21 @@ class WidgetService {
       Log.i('📱 WidgetService: Cleared widget data');
     } catch (e) {
       Log.e('❌ WidgetService: Error clearing widget', error: e);
+    }
+  }
+
+  /// Test widget functionality
+  static Future<bool> testWidget() async {
+    try {
+      await HomeWidget.updateWidget(
+        name: _widgetName,
+        androidName: 'PlanovaWidgetProvider',
+      );
+      Log.i('📱 WidgetService: Widget test successful');
+      return true;
+    } catch (e) {
+      Log.e('❌ WidgetService: Widget test failed', error: e);
+      return false;
     }
   }
 

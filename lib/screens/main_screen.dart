@@ -6,6 +6,7 @@ import 'package:planova/screens/calendar_view.dart';
 import 'package:planova/screens/notes_view.dart';
 import 'package:planova/screens/preferences_screen.dart';
 import 'package:planova/services/file_monitor_service.dart';
+import 'package:planova/services/intent_handler_service.dart';
 import 'package:planova/utils/logger.dart';
 import 'package:provider/provider.dart';
 
@@ -48,7 +49,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       context.read<DailyFileProvider>().checkDateChangeAndUpdateWidget();
 
       // Perform incremental refresh to catch any external file changes
-      _performIncrementalRefresh();
+      _performIncrementalRefresh().then((_) {
+        // Handle any shared intents that came in while app was in background
+        _handleSharedIntents();
+      });
     }
   }
 
@@ -101,10 +105,53 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       context.read<DailyFileProvider>().startWidgetUpdateTimer();
       context.read<NoteFileProvider>().startWidgetUpdateTimer();
 
+      // Handle any shared intents (ICS files, etc.)
+      await _handleSharedIntents();
+
       Log.i('🚀 MainScreen: All providers initialized successfully');
     } catch (e) {
       Log.e('❌ MainScreen: Error initializing providers', error: e);
       rethrow;
+    }
+  }
+
+  /// Navigate to a specific date in the calendar view
+  void _navigateToDate(String date) {
+    // Switch to calendar view if not already there
+    if (_currentIndex != 0) {
+      setState(() {
+        _currentIndex = 0;
+      });
+    }
+
+    // Set the selected date in the daily file provider
+    // This will trigger the calendar view to show the correct date
+    context.read<DailyFileProvider>().setSelectedDate(date);
+  }
+
+  /// Handle shared intents (ICS files, calendar events, etc.)
+  Future<void> _handleSharedIntents() async {
+    try {
+      Log.d('📅 MainScreen: Checking for shared intents...');
+
+      // Use IntentHandlerService to process any shared content
+      final selectedDate =
+          await IntentHandlerService.handleSharedIntent(context);
+
+      if (selectedDate != null) {
+        Log.i(
+            '📅 MainScreen: Shared intent processed successfully, selected date: $selectedDate');
+
+        // Navigate to the calendar view and select the date
+        if (selectedDate.isNotEmpty) {
+          _navigateToDate(selectedDate);
+        }
+      } else {
+        Log.d('📅 MainScreen: No shared intent data to process');
+      }
+    } catch (e) {
+      Log.e('❌ MainScreen: Error handling shared intents', error: e);
+      // Don't rethrow - this shouldn't prevent app from working
     }
   }
 

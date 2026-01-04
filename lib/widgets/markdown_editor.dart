@@ -61,7 +61,7 @@ class MarkdownEditorState extends State<MarkdownEditor> {
 
     // Cancel previous timer
     _autoSaveTimer?.cancel();
-    
+
     // Start new timer for autosave
     _autoSaveTimer = Timer(const Duration(milliseconds: 500), () {
       if (widget.onAutoSave != null && _hasChanges) {
@@ -74,7 +74,6 @@ class MarkdownEditorState extends State<MarkdownEditor> {
       }
     });
   }
-
 
   @override
   void dispose() {
@@ -152,7 +151,9 @@ class MarkdownEditorState extends State<MarkdownEditor> {
                   icon: const Icon(Icons.code),
                   tooltip: 'Code',
                 ),
-              if (widget.showSaveButton && widget.mode == EditorMode.embedded && _hasChanges)
+              if (widget.showSaveButton &&
+                  widget.mode == EditorMode.embedded &&
+                  _hasChanges)
                 TextButton(
                   onPressed: _saveContent,
                   child: const Text('Save'),
@@ -161,7 +162,7 @@ class MarkdownEditorState extends State<MarkdownEditor> {
           ),
         ),
         const SizedBox(height: 8),
-        
+
         // Text editor
         Expanded(
           child: TextField(
@@ -207,18 +208,21 @@ class MarkdownEditorState extends State<MarkdownEditor> {
   void _insertText([String prefix = '', String suffix = '']) {
     final text = _controller.text;
     final selection = _controller.selection;
-    
+
     if (selection.isValid) {
       final newText = text.replaceRange(
         selection.start,
         selection.end,
         '$prefix${selection.textInside(text)}$suffix',
       );
-      
+
       _controller.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(
-          offset: selection.start + prefix.length + selection.textInside(text).length + suffix.length,
+          offset: selection.start +
+              prefix.length +
+              selection.textInside(text).length +
+              suffix.length,
         ),
       );
     }
@@ -240,14 +244,14 @@ class MarkdownEditorState extends State<MarkdownEditor> {
   void _toggleTodo() {
     final text = _controller.text;
     final selection = _controller.selection;
-    
+
     if (!selection.isValid) return;
-    
+
     // Find the current line
     final lines = text.split('\n');
     int currentLine = 0;
     int currentPosition = 0;
-    
+
     for (int i = 0; i < lines.length; i++) {
       final lineLength = lines[i].length + 1; // +1 for newline
       if (currentPosition + lineLength > selection.start) {
@@ -256,30 +260,31 @@ class MarkdownEditorState extends State<MarkdownEditor> {
       }
       currentPosition += lineLength;
     }
-    
+
     if (currentLine >= lines.length) return;
-    
+
     final currentLineText = lines[currentLine];
-    
+
     // Check if this line has a todo checkbox
-    final todoMatch = RegExp(r'^(\s*[-*+]\s*)\[\s*([x\s])\s*\]\s*(.*)$').firstMatch(currentLineText);
-    
+    final todoMatch = RegExp(r'^(\s*[-*+]\s*)\[\s*([x\s])\s*\]\s*(.*)$')
+        .firstMatch(currentLineText);
+
     if (todoMatch != null) {
       // Toggle the checkbox
       final prefix = todoMatch.group(1)!;
       final isChecked = todoMatch.group(2) == 'x';
       final content = todoMatch.group(3)!;
-      
+
       final newCheckbox = isChecked ? '[ ]' : '[x]';
       final newLine = '$prefix$newCheckbox $content';
-      
+
       // Replace the line
       lines[currentLine] = newLine;
       final newText = lines.join('\n');
-      
+
       // Calculate new cursor position
       final newCursorPosition = currentPosition + newLine.length;
-      
+
       _controller.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(offset: newCursorPosition),
@@ -289,15 +294,15 @@ class MarkdownEditorState extends State<MarkdownEditor> {
       final indentMatch = RegExp(r'^(\s*)').firstMatch(currentLineText);
       final indent = indentMatch?.group(1) ?? '';
       final newTodo = '$indent- [ ] ';
-      
+
       // Insert at the beginning of the line
       final newLine = newTodo + currentLineText.trim();
       lines[currentLine] = newLine;
       final newText = lines.join('\n');
-      
+
       // Calculate new cursor position
       final newCursorPosition = currentPosition + newTodo.length;
-      
+
       _controller.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(offset: newCursorPosition),
@@ -333,7 +338,8 @@ class MarkdownEditorState extends State<MarkdownEditor> {
                       initialTime: selectedTime,
                       builder: (context, child) {
                         return MediaQuery(
-                          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                          data: MediaQuery.of(context)
+                              .copyWith(alwaysUse24HourFormat: true),
                           child: child!,
                         );
                       },
@@ -399,12 +405,12 @@ class _MarkdownInputFormatter extends TextInputFormatter {
       // Find the difference - check if a newline was just added
       final oldLines = oldValue.text.split('\n');
       final newLines = newValue.text.split('\n');
-      
+
       if (newLines.length > oldLines.length) {
         // A newline was added, find which line was split
         final text = newValue.text;
         final selection = newValue.selection;
-        
+
         if (!selection.isValid) return newValue;
 
         // Find the current line (the one with the cursor)
@@ -426,12 +432,13 @@ class _MarkdownInputFormatter extends TextInputFormatter {
         // Get the previous line (the one that was split)
         final previousLineIndex = currentLine - 1;
         if (previousLineIndex < 0) return newValue;
-        
+
         final previousLineText = lines[previousLineIndex];
-        
+
         // Check for patterns that should be continued
         final patterns = [
-          RegExp(r'^(\s*)(-\s+\[[x\s]\]\s+)(.*)$'), // - [x] or - [ ] item (check this first)
+          RegExp(
+              r'^(\s*)(-\s+\[[x\s]\]\s+)(.*)$'), // - [x] or - [ ] item (check this first)
           RegExp(r'^(\s*)(-\s+@\d{2}:\d{2}\s+)(.*)$'), // - @14:00 item
           RegExp(r'^(\s*)(-\s+)(.*)$'), // - item (check this last)
         ];
@@ -466,7 +473,7 @@ class _MarkdownInputFormatter extends TextInputFormatter {
         }
       }
     }
-    
+
     return newValue;
   }
 }

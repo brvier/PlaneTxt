@@ -11,15 +11,15 @@ import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize widget service
   await WidgetService.initialize();
-  
+
   // Initialize notification service
   final notificationService = NotificationService();
   await notificationService.initialize();
   await notificationService.requestPermissions();
-  
+
   runApp(const PlanovaApp());
 }
 
@@ -48,7 +48,7 @@ class PlanovaApp extends StatelessWidget {
               debugShowCheckedModeBanner: false,
             );
           }
-          
+
           return MaterialApp(
             title: 'Planova',
             theme: themeProvider.lightTheme,

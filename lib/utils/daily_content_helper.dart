@@ -74,4 +74,126 @@ class DailyContentHelper {
       return content.isEmpty ? newContent : '$content\n\n$newContent';
     }
   }
+
+  /// Inserts multiple events into the events section in chronological order.
+  /// Creates an events section if one doesn't exist.
+  static String insertEventsChronologically(
+    String content,
+    List<String> eventLines, // List of event lines like "- @09:00 Meeting"
+    String eventHeaderRegex,
+  ) {
+    try {
+      final regex = RegExp(eventHeaderRegex, multiLine: true);
+      final lines = content.split('\n');
+
+      // Find the events section
+      int? eventsHeaderIndex;
+      int? eventsSectionEndIndex;
+
+      for (int i = 0; i < lines.length; i++) {
+        if (regex.hasMatch(lines[i])) {
+          eventsHeaderIndex = i;
+
+          // Find the end of the events section (next header or end of file)
+          eventsSectionEndIndex = i + 1;
+          while (eventsSectionEndIndex! < lines.length) {
+            final line = lines[eventsSectionEndIndex].trim();
+            if (line.isEmpty) {
+              eventsSectionEndIndex++;
+              continue;
+            }
+            if (line.startsWith('##') || line.startsWith('#')) {
+              break;
+            }
+            if (_isEventLine(line)) {
+              eventsSectionEndIndex++;
+              continue;
+            }
+            // If it's not an event line and not a header, it's the end of events section
+            break;
+          }
+          break;
+        }
+      }
+
+      // Sort events chronologically
+      final sortedEvents = _sortEventLinesChronologically(eventLines);
+
+      if (eventsHeaderIndex != null) {
+        // Events section exists - insert sorted events
+        final beforeEvents = lines.sublist(0, eventsHeaderIndex + 1);
+        final afterEventsHeader =
+            lines.sublist(eventsHeaderIndex + 1, eventsSectionEndIndex);
+        final afterEventsSection =
+            lines.sublist(eventsSectionEndIndex ?? lines.length);
+
+        // Filter out existing events to avoid duplicates
+        final existingEvents =
+            afterEventsHeader.where((line) => _isEventLine(line.trim()));
+        final newEvents = sortedEvents.where((newEvent) => !existingEvents
+            .any((existing) => _eventsAreSame(existing.trim(), newEvent)));
+
+        return [
+          ...beforeEvents,
+          ...afterEventsHeader.where((line) => !_isEventLine(line.trim())),
+          ...newEvents,
+          if (afterEventsSection.isNotEmpty) ...afterEventsSection,
+        ].join('\n');
+      } else {
+        // No events section - create one with sorted events
+        if (content.isNotEmpty && !content.endsWith('\n')) {
+          return '$content\n\n## Events\n\n${sortedEvents.join('\n')}';
+        } else {
+          return '$content\n## Events\n\n${sortedEvents.join('\n')}';
+        }
+      }
+    } catch (e) {
+      Log.e('?? DailyContentHelper: Error inserting events chronologically',
+          error: e);
+      // Fallback: append events at the end
+      if (content.isNotEmpty && !content.endsWith('\n')) {
+        return '$content\n\n${eventLines.join('\n')}';
+      } else {
+        return '$content\n${eventLines.join('\n')}';
+      }
+    }
+  }
+
+  /// Check if a line is an event line
+  static bool _isEventLine(String line) {
+    return RegExp(r'^\s*-\s*@\d{1,2}:\d{2}').hasMatch(line);
+  }
+
+  /// Sort event lines chronologically by their time
+  static List<String> _sortEventLinesChronologically(List<String> eventLines) {
+    // Extract time from each event line and sort
+    final eventsWithTimes = eventLines.map((line) {
+      final timeMatch = RegExp(r'@(\d{1,2}):(\d{2})').firstMatch(line);
+      if (timeMatch != null) {
+        final hour = int.parse(timeMatch.group(1)!);
+        final minute = int.parse(timeMatch.group(2)!);
+        final timeValue = hour * 100 +
+            minute; // Convert to sortable number (e.g., 930 for 09:30)
+        return {'line': line, 'time': timeValue};
+      }
+      return {'line': line, 'time': 0}; // Default to 0 if no time found
+    }).toList();
+
+    // Sort by time value
+    eventsWithTimes
+        .sort((a, b) => (a['time'] as int).compareTo(b['time'] as int));
+
+    return eventsWithTimes.map((e) => e['line'] as String).toList();
+  }
+
+  /// Check if two event lines represent the same event (basic comparison)
+  static bool _eventsAreSame(String existingEvent, String newEvent) {
+    // Extract the core content (remove bullet and time)
+    final existingCore =
+        existingEvent.replaceAll(RegExp(r'^\s*-\s*@\d{1,2}:\d{2}\s*'), '');
+    final newCore =
+        newEvent.replaceAll(RegExp(r'^\s*-\s*@\d{1,2}:\d{2}\s*'), '');
+
+    return existingCore.trim() == newCore.trim();
+  }
 }

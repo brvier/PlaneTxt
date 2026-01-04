@@ -38,8 +38,8 @@ class NoteListItem extends StatelessWidget {
               Text(
                 note.folderPath,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
               ),
             Text(
               _getPreview(note.content),
@@ -92,7 +92,7 @@ class NoteListItem extends StatelessWidget {
     if (content.isEmpty) {
       return 'Empty note';
     }
-    
+
     // Remove markdown syntax for preview
     final String preview = content
         .replaceAll(RegExp(r'#+\s*'), '') // Remove headers
@@ -100,10 +100,12 @@ class NoteListItem extends StatelessWidget {
         .replaceAll(RegExp(r'\*(.*?)\*'), r'$1') // Remove italic
         .replaceAll(RegExp(r'`(.*?)`'), r'$1') // Remove code
         .replaceAll(RegExp(r'\[([^\]]+)\]\([^)]+\)'), r'$1') // Remove links
-        .replaceAll(RegExp(r'^\s*[-*+]\s*', multiLine: true), '') // Remove list markers
-        .replaceAll(RegExp(r'^\s*\d+\.\s*', multiLine: true), '') // Remove numbered list markers
+        .replaceAll(
+            RegExp(r'^\s*[-*+]\s*', multiLine: true), '') // Remove list markers
+        .replaceAll(RegExp(r'^\s*\d+\.\s*', multiLine: true),
+            '') // Remove numbered list markers
         .trim();
-    
+
     return preview.isEmpty ? 'Empty note' : preview;
   }
 }

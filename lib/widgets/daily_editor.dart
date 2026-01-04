@@ -27,7 +27,8 @@ class DailyEditorState extends State<DailyEditor> {
       onSave: widget.onSave,
       onAutoSave: widget.onAutoSave,
       title: 'Daily Notes - ${_formatDate(widget.date)}',
-      hintText: 'Write your daily notes here...\\n\\nYou can use Markdown syntax:\\n- **bold** for bold text\\n- *italic* for italic text\\n- - for bullet lists\\n- 1. for numbered lists\\n- [ ] for todo items',
+      hintText:
+          'Write your daily notes here...\\n\\nYou can use Markdown syntax:\\n- **bold** for bold text\\n- *italic* for italic text\\n- - for bullet lists\\n- 1. for numbered lists\\n- [ ] for todo items',
       mode: EditorMode.embedded,
       showHeaderButton: false,
       showCodeButton: false,

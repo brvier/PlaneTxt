@@ -27,9 +27,7 @@ class CalendarDayWidget extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: isSelected 
-            ? Theme.of(context).colorScheme.primary
-            : null,
+        color: isSelected ? Theme.of(context).colorScheme.primary : null,
         shape: BoxShape.circle,
       ),
       child: Stack(
@@ -50,9 +48,10 @@ class CalendarDayWidget extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Indicators
-          if ((hasTodos || hasDailyFile || hasCalendarEvents) && !isOutsideMonth)
+          if ((hasTodos || hasDailyFile || hasCalendarEvents) &&
+              !isOutsideMonth)
             Positioned(
               bottom: 2,
               left: 0,

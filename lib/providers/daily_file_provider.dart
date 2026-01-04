@@ -65,6 +65,130 @@ class DailyFileProvider extends ChangeNotifier {
     }
   }
 
+  /// Add events from external sources (like ICS files) to appropriate daily files
+  Future<void> addEventsFromIntent(
+      BuildContext context, List<CalendarEvent> events) async {
+    try {
+      Log.i('📅 DailyFileProvider: Adding ${events.length} events from intent');
+
+      // Group events by date
+      final eventsByDate = <String, List<CalendarEvent>>{};
+      for (final event in events) {
+        eventsByDate.putIfAbsent(event.date, () => []).add(event);
+      }
+
+      // Process each date's events
+      for (final entry in eventsByDate.entries) {
+        final date = entry.key;
+        final dateEvents = entry.value;
+
+        // Get existing daily file or create template
+        var dailyFile = getDailyFile(date);
+        String content = dailyFile?.content ?? '';
+
+        // If no content exists, use the default template
+        if (content.isEmpty) {
+          // We need to get the template from ThemeProvider
+          // This is a bit tricky since we can't access ThemeProvider directly here
+          // For now, we'll use a basic template
+          content = _getBasicDailyTemplate();
+        }
+
+        // Add events to content
+        content = _addEventsToDailyContent(content, dateEvents);
+
+        // Save the updated content
+        await saveDailyFile(context, date, content);
+      }
+
+      Log.i('📅 DailyFileProvider: Successfully added events from intent');
+    } catch (e) {
+      Log.e('❌ DailyFileProvider: Error adding events from intent', error: e);
+      rethrow;
+    }
+  }
+
+  /// Get a basic daily template
+  String _getBasicDailyTemplate() {
+    return '''# Daily Notes
+
+## Events
+
+## Tasks
+
+## Notes
+''';
+  }
+
+  /// Add events to daily content
+  String _addEventsToDailyContent(String content, List<CalendarEvent> events) {
+    // Sort events by time
+    events.sort((a, b) => a.time.compareTo(b.time));
+
+    final lines = content.split('\n');
+    final newLines = <String>[];
+
+    bool inEventsSection = false;
+    bool eventsSectionFound = false;
+
+    for (final line in lines) {
+      // Check if we're entering the events section
+      if (line.trim().startsWith('## Events') ||
+          line.trim().startsWith('## Event')) {
+        newLines.add(line);
+        inEventsSection = true;
+        eventsSectionFound = true;
+
+        // Add all events after the header
+        for (final event in events) {
+          newLines.add('- @${event.formattedTime} ${event.title}');
+          if (event.description.isNotEmpty) {
+            // Add description as indented lines
+            final descriptionLines = event.description.split('\n');
+            for (final descLine in descriptionLines) {
+              if (descLine.trim().isNotEmpty) {
+                newLines.add('  $descLine');
+              }
+            }
+          }
+        }
+        continue;
+      }
+
+      // If we're in events section and hit a non-event, non-empty line, we're done with events
+      if (inEventsSection && line.trim().isNotEmpty && !_isEventLine(line)) {
+        inEventsSection = false;
+      }
+
+      newLines.add(line);
+    }
+
+    // If no events section was found, add one at the end
+    if (!eventsSectionFound) {
+      newLines.add('## Events');
+      newLines.add('');
+
+      for (final event in events) {
+        newLines.add('- @${event.formattedTime} ${event.title}');
+        if (event.description.isNotEmpty) {
+          final descriptionLines = event.description.split('\n');
+          for (final descLine in descriptionLines) {
+            if (descLine.trim().isNotEmpty) {
+              newLines.add('  $descLine');
+            }
+          }
+        }
+      }
+    }
+
+    return newLines.join('\n');
+  }
+
+  /// Check if a line is an event line
+  bool _isEventLine(String line) {
+    return RegExp(r'^\s*-\s*@\d{1,2}:\d{2}').hasMatch(line.trim());
+  }
+
   Future<void> saveDailyFile(
       BuildContext context, String date, String content) async {
     try {

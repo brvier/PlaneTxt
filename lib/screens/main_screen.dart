@@ -61,6 +61,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     // Small delay to ensure app is fully resumed
     await Future.delayed(const Duration(milliseconds: 500));
 
+    if (!mounted) return;
+
     try {
       Log.d('🚀 MainScreen: Performing incremental refresh on app resume');
 
@@ -84,6 +86,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       final directoryProvider = context.read<DirectoryProvider>();
       await directoryProvider.initializeDirectories(context);
 
+      if (!mounted) return;
+
       // Start monitoring dailies for external changes
       final dailiesDirectory = directoryProvider.dailiesDirectory;
       if (dailiesDirectory != null) {
@@ -93,13 +97,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             '🚀 MainScreen: Dailies directory not initialized; skipping file monitor');
       }
 
+      if (!mounted) return;
+
       // Initialize daily files (full load on first startup)
       Log.i('🚀 MainScreen: Loading daily files...');
       await context.read<DailyFileProvider>().loadDailyFiles(forceReload: true);
 
+      if (!mounted) return;
+
       // Initialize notes (full load on first startup)
       Log.i('🚀 MainScreen: Loading note files...');
       await context.read<NoteFileProvider>().loadNoteFiles(forceReload: true);
+
+      if (!mounted) return;
 
       // Start widget update timers
       context.read<DailyFileProvider>().startWidgetUpdateTimer();

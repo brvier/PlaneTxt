@@ -51,6 +51,15 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d("MainActivity", "onCreate called, handling intent")
+        
+        // Schedule periodic widget updates
+        try {
+            WidgetUpdateReceiver.schedulePeriodicUpdates(this)
+            Log.d("MainActivity", "Widget auto-refresh scheduled successfully")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to schedule widget updates", e)
+        }
+        
         handleIntent(intent)
     }
 

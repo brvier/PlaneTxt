@@ -7,7 +7,7 @@ import 'package:planova/utils/logger.dart';
 
 class NoteRepository {
   final StorageService _storageService;
-  List<NoteFile> _cache = [];
+  final List<NoteFile> _cache = [];
   final Map<String, DateTime> _lastModified = {};
 
   NoteRepository(this._storageService);
@@ -218,8 +218,7 @@ class NoteRepository {
       _cache.add(noteFile);
     }
 
-    final allFiles = <NoteFile>[]
-      ..addAll(_cache)
+    final allFiles = <NoteFile>[..._cache]
       ..sort((a, b) => b.lastModified.compareTo(a.lastModified));
 
     Log.i(

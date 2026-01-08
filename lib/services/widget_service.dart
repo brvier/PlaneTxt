@@ -44,9 +44,10 @@ class WidgetService {
       isDarkThemeOverride: isDarkThemeOverride,
     );
 
-    final backgroundColor = theme.colorScheme.surfaceContainerHighest.value;
-    final titleColor = theme.colorScheme.primary.value;
-    final textColor = theme.colorScheme.onSurface.value;
+    final backgroundColor =
+        theme.colorScheme.surfaceContainerHighest.toARGB32();
+    final titleColor = theme.colorScheme.primary.toARGB32();
+    final textColor = theme.colorScheme.onSurface.toARGB32();
 
     await prefs.setInt(AppConstants.widgetBackgroundColorKey, backgroundColor);
     await prefs.setInt(AppConstants.widgetTitleColorKey, titleColor);

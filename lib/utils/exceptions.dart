@@ -28,14 +28,10 @@ abstract class PlanovaException implements Exception {
 /// Exception thrown when initialization fails
 class InitializationException extends PlanovaException {
   const InitializationException(
-    String message, {
-    String? details,
-    dynamic originalError,
-  }) : super(
-          message,
-          details: details,
-          originalError: originalError,
-        );
+    super.message, {
+    super.details,
+    super.originalError,
+  });
 }
 
 /// Exception thrown when file operations fail
@@ -43,15 +39,11 @@ class FileOperationException extends PlanovaException {
   final String? filePath;
 
   const FileOperationException(
-    String message, {
+    super.message, {
     this.filePath,
-    String? details,
-    dynamic originalError,
-  }) : super(
-          message,
-          details: details,
-          originalError: originalError,
-        );
+    super.details,
+    super.originalError,
+  });
 }
 
 /// Exception thrown when directory operations fail
@@ -59,15 +51,11 @@ class DirectoryException extends PlanovaException {
   final String? directoryPath;
 
   const DirectoryException(
-    String message, {
+    super.message, {
     this.directoryPath,
-    String? details,
-    dynamic originalError,
-  }) : super(
-          message,
-          details: details,
-          originalError: originalError,
-        );
+    super.details,
+    super.originalError,
+  });
 }
 
 /// Exception thrown when permission operations fail
@@ -75,15 +63,11 @@ class PermissionException extends PlanovaException {
   final String? permission;
 
   const PermissionException(
-    String message, {
+    super.message, {
     this.permission,
-    String? details,
-    dynamic originalError,
-  }) : super(
-          message,
-          details: details,
-          originalError: originalError,
-        );
+    super.details,
+    super.originalError,
+  });
 }
 
 /// Exception thrown when parsing operations fail
@@ -91,15 +75,11 @@ class ParseException extends PlanovaException {
   final String? content;
 
   const ParseException(
-    String message, {
+    super.message, {
     this.content,
-    String? details,
-    dynamic originalError,
-  }) : super(
-          message,
-          details: details,
-          originalError: originalError,
-        );
+    super.details,
+    super.originalError,
+  });
 }
 
 /// Exception thrown when validation fails
@@ -108,16 +88,12 @@ class ValidationException extends PlanovaException {
   final dynamic value;
 
   const ValidationException(
-    String message, {
+    super.message, {
     this.field,
     this.value,
-    String? details,
-    dynamic originalError,
-  }) : super(
-          message,
-          details: details,
-          originalError: originalError,
-        );
+    super.details,
+    super.originalError,
+  });
 }
 
 /// Exception thrown when network operations fail
@@ -125,15 +101,11 @@ class NetworkException extends PlanovaException {
   final String? url;
 
   const NetworkException(
-    String message, {
+    super.message, {
     this.url,
-    String? details,
-    dynamic originalError,
-  }) : super(
-          message,
-          details: details,
-          originalError: originalError,
-        );
+    super.details,
+    super.originalError,
+  });
 }
 
 /// Exception thrown when widget operations fail
@@ -141,15 +113,11 @@ class WidgetException extends PlanovaException {
   final String? widgetId;
 
   const WidgetException(
-    String message, {
+    super.message, {
     this.widgetId,
-    String? details,
-    dynamic originalError,
-  }) : super(
-          message,
-          details: details,
-          originalError: originalError,
-        );
+    super.details,
+    super.originalError,
+  });
 }
 
 /// Exception thrown when notification operations fail
@@ -157,15 +125,11 @@ class NotificationException extends PlanovaException {
   final int? notificationId;
 
   const NotificationException(
-    String message, {
+    super.message, {
     this.notificationId,
-    String? details,
-    dynamic originalError,
-  }) : super(
-          message,
-          details: details,
-          originalError: originalError,
-        );
+    super.details,
+    super.originalError,
+  });
 }
 
 /// Utility class for creating common exceptions

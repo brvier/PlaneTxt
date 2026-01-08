@@ -129,11 +129,11 @@ class Log {
     // Console logging
     if (_enableConsoleLogging && kDebugMode) {
       if (level == LogLevel.error) {
-        print(fullMessage);
-        if (error != null) print('Error: $error');
-        if (stackTrace != null) print('StackTrace: $stackTrace');
+        debugPrint(fullMessage);
+        if (error != null) debugPrint('Error: $error');
+        if (stackTrace != null) debugPrint('StackTrace: $stackTrace');
       } else {
-        print(fullMessage);
+        debugPrint(fullMessage);
       }
     }
 

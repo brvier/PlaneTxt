@@ -344,6 +344,8 @@ class _RenameNoteDialogState extends State<_RenameNoteDialog> {
         Provider.of<NoteFileProvider>(context, listen: false);
     final success = await noteFileProvider.renameNoteFile(widget.note, newName);
 
+    if (!mounted) return;
+
     if (success) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(

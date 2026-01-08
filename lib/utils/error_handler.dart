@@ -66,23 +66,23 @@ class ErrorHandler {
   /// Get user-friendly message for exceptions
   static String _getUserFriendlyMessage(PlanovaException exception) {
     switch (exception.runtimeType) {
-      case InitializationException:
-        return 'Failed to initialize the application. Please restart the app.';
-      case FileOperationException:
+      case InitializationException _:
+        return 'Failed to initialize the application. Please restart app.';
+      case FileOperationException _:
         return 'Failed to perform file operation. Please check your storage permissions.';
-      case DirectoryException:
+      case DirectoryException _:
         return 'Failed to access directory. Please check your storage permissions.';
-      case PermissionException:
-        return 'Permission denied. Please grant the necessary permissions.';
-      case ParseException:
+      case PermissionException _:
+        return 'Permission denied. Please grant necessary permissions.';
+      case ParseException _:
         return 'Failed to parse content. The file format may be invalid.';
-      case ValidationException:
+      case ValidationException _:
         return 'Invalid input. Please check your data and try again.';
-      case NetworkException:
+      case NetworkException _:
         return 'Network error. Please check your internet connection.';
-      case WidgetException:
+      case WidgetException _:
         return 'Widget operation failed. Please try again.';
-      case NotificationException:
+      case NotificationException _:
         return 'Failed to send notification. Please check your notification settings.';
       default:
         return 'An error occurred. Please try again.';

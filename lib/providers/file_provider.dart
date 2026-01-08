@@ -63,6 +63,7 @@ class FileProvider extends ChangeNotifier {
       }
 
       // Update widget with today's content
+      // ignore: use_build_context_synchronously
       await _updateWidget(context);
 
       // Start periodic widget updates

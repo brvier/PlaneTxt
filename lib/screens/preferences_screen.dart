@@ -404,6 +404,7 @@ class PreferencesScreen extends StatelessWidget {
       if (Platform.isAndroid) {
         final androidInfo = await DeviceInfoPlugin().androidInfo;
         if (androidInfo.version.sdkInt >= 30) {
+          // ignore: use_build_context_synchronously
           final shouldProceed = await _showPermissionExplanationDialog(context);
           if (!shouldProceed) return;
         }
@@ -454,11 +455,15 @@ class PreferencesScreen extends StatelessWidget {
           await testFile.writeAsString('test');
           await testFile.delete();
 
-          // Set the storage path
+          // Set as storage path
           themeProvider.setStoragePath(selectedDir.path);
+
+          if (!context.mounted) return;
+
           Navigator.of(context).pop();
 
           // Reinitialize directory provider with new location
+          // ignore: use_build_context_synchronously
           _reinitializeDirectoryProvider(context);
 
           if (context.mounted) {
@@ -565,6 +570,8 @@ class PreferencesScreen extends StatelessWidget {
     final buildNumber = packageInfo.buildNumber;
     final versionString =
         buildNumber.isNotEmpty ? '$version+$buildNumber' : version;
+
+    if (!context.mounted) return;
 
     showAboutDialog(
       context: context,

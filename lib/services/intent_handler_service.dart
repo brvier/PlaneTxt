@@ -4,6 +4,7 @@ import 'package:planova/models/calendar_event.dart';
 import 'package:planova/providers/daily_file_provider.dart';
 import 'package:planova/providers/theme_provider.dart';
 import 'package:planova/services/ics_parser_service.dart';
+import 'package:planova/utils/daily_content_helper.dart';
 import 'package:planova/utils/logger.dart';
 import 'package:provider/provider.dart';
 
@@ -20,12 +21,13 @@ class IntentHandlerService {
       // Check for shared text (ICS content)
       final sharedText = await _channel.invokeMethod<String>('getSharedText');
       Log.i(
-          '📅 IntentHandlerService: Shared text received: ${sharedText != null ? (sharedText.length > 50 ? sharedText.substring(0, 50) + '...' : sharedText) : 'null'}');
+          '📅 IntentHandlerService: Shared text received: ${sharedText != null ? (sharedText.length > 50 ? '${sharedText.substring(0, 50)}...' : sharedText) : 'null'}');
       Log.i(
           '📅 IntentHandlerService: Shared text from Android: ${sharedText != null ? (sharedText.length > 100 ? sharedText.substring(0, 100) : sharedText) : 'null'}');
 
       if (sharedText != null && sharedText.isNotEmpty) {
         Log.i('📅 IntentHandlerService: Received shared text intent');
+        // ignore: use_build_context_synchronously
         return await _handleIcsContent(context, sharedText);
       }
 
@@ -46,9 +48,11 @@ class IntentHandlerService {
           if (fileContent != null && fileContent.isNotEmpty) {
             Log.i(
                 '📅 IntentHandlerService: Successfully read ${fileContent.length} characters from file');
+            // ignore: use_build_context_synchronously
             return await _handleIcsContent(context, fileContent);
           } else {
             Log.w('⚠️  IntentHandlerService: File content is empty or null');
+            // ignore: use_build_context_synchronously
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                   content: Text('File is empty or could not be read'),
@@ -59,6 +63,7 @@ class IntentHandlerService {
         } catch (e) {
           Log.e('❌ IntentHandlerService: Error reading file from URI',
               error: e);
+          // ignore: use_build_context_synchronously
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content: Text('Error reading file: ${e.toString()}'),
@@ -256,7 +261,9 @@ class IntentHandlerService {
       // Show success message
       Log.i(
           '📅 IntentHandlerService: Successfully added ${events.length} events to daily files');
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).clearSnackBars();
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Successfully added ${events.length} event(s)'),
@@ -269,6 +276,7 @@ class IntentHandlerService {
     } catch (e) {
       Log.e('❌ IntentHandlerService: Error adding events to daily files',
           error: e);
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('Error adding events: ${e.toString()}'),
@@ -278,89 +286,28 @@ class IntentHandlerService {
     }
   }
 
-  /// Extract existing event header from content
-  static String? _findExistingEventHeader(
-      String content, RegExp eventHeaderRegex) {
-    final lines = content.split('\n');
-    for (final line in lines) {
-      if (eventHeaderRegex.hasMatch(line)) {
-        return line;
-      }
-    }
-    return null;
-  }
-
   /// Add events to daily content at appropriate positions
   static String _addEventsToContent(
       String content, List<CalendarEvent> events, RegExp eventHeaderRegex) {
     events.sort((a, b) => a.time.compareTo(b.time));
 
-    final lines = content.split('\n');
-    final newLines = <String>[];
+    // Insert events one at a time after the last event
+    for (final event in events) {
+      final eventLine = '- @${event.formattedTime} ${event.title}';
+      content = DailyContentHelper.insertAfterLastEvent(
+          content, eventLine, eventHeaderRegex.pattern);
 
-    bool eventsSectionFound = false;
-    int insertPosition = -1;
-
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i];
-
-      if (eventHeaderRegex.hasMatch(line) && !eventsSectionFound) {
-        eventsSectionFound = true;
-        newLines.add(line);
-        continue;
-      }
-
-      if (eventsSectionFound && _isEventLine(line)) {
-        newLines.add(line);
-      } else if (eventsSectionFound && line.trim().isNotEmpty) {
-        insertPosition = newLines.length;
-        newLines.add(line);
-        break;
-      } else {
-        newLines.add(line);
-      }
-    }
-
-    if (eventsSectionFound && insertPosition >= 0) {
-      for (final event in events) {
-        newLines.insert(
-            insertPosition, '- @${event.formattedTime} ${event.title}');
-        insertPosition++;
-        if (event.description.isNotEmpty) {
-          final descriptionLines = event.description.split('\n');
-          for (final descLine in descriptionLines) {
-            if (descLine.trim().isNotEmpty) {
-              newLines.insert(insertPosition, '  $descLine');
-              insertPosition++;
-            }
-          }
-        }
-      }
-    } else if (!eventsSectionFound) {
-      final eventHeader = _findExistingEventHeader(content, eventHeaderRegex);
-      final headerToUse = eventHeader ?? '## Events';
-      newLines.add(headerToUse);
-      newLines.add('');
-      for (final event in events) {
-        newLines.add('- @${event.formattedTime} ${event.title}');
-        if (event.description.isNotEmpty) {
-          final descriptionLines = event.description.split('\n');
-          for (final descLine in descriptionLines) {
-            if (descLine.trim().isNotEmpty) {
-              newLines.add('  $descLine');
-            }
+      // Add description if present
+      if (event.description.isNotEmpty) {
+        final descriptionLines = event.description.split('\n');
+        for (final descLine in descriptionLines) {
+          if (descLine.trim().isNotEmpty) {
+            content = '$content\n  $descLine';
           }
         }
       }
     }
 
-    return newLines.join('\n');
-  }
-
-  /// Check if a line is an event line (starts with - @HH:MM)
-  static bool _isEventLine(String line) {
-    return RegExp(r'^\s*-\s*@\d{1,2}:\d{2}').hasMatch(line.trim());
+    return content;
   }
 }
-
-/// Add events to daily content at appropriate positions

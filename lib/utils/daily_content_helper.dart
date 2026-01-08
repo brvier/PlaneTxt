@@ -196,4 +196,235 @@ class DailyContentHelper {
 
     return existingCore.trim() == newCore.trim();
   }
+
+  /// Inserts an event after the last existing event in the events section.
+  /// If no events section exists, creates one. If no events exist in the section,
+  /// inserts after the header with a space.
+  ///
+  /// [content] - The existing daily file content
+  /// [eventContent] - The new event content (e.g., "- @09:00 Meeting")
+  /// [eventHeaderRegex] - Regex pattern to match the events header
+  ///
+  /// Returns the updated content with the new event inserted after the last event.
+  static String insertAfterLastEvent(
+    String content,
+    String eventContent,
+    String eventHeaderRegex,
+  ) {
+    if (eventHeaderRegex.isEmpty) {
+      return content.isEmpty ? eventContent : '$content\n\n$eventContent';
+    }
+
+    try {
+      final regex = RegExp(eventHeaderRegex, multiLine: true);
+      final lines = content.split('\n');
+
+      // Find the events section header
+      int? eventsHeaderIndex;
+      int? eventsSectionEndIndex;
+
+      for (int i = 0; i < lines.length; i++) {
+        if (regex.hasMatch(lines[i])) {
+          eventsHeaderIndex = i;
+
+          // Find the end of the events section (next header or end of file)
+          eventsSectionEndIndex = i + 1;
+          while (eventsSectionEndIndex! < lines.length) {
+            final line = lines[eventsSectionEndIndex].trim();
+            if (line.isEmpty) {
+              eventsSectionEndIndex++;
+              continue;
+            }
+            if (line.startsWith('##') || line.startsWith('#')) {
+              break;
+            }
+            if (_isEventLine(line)) {
+              eventsSectionEndIndex++;
+              continue;
+            }
+            // If it's not an event line and not a header, it's the end of events section
+            break;
+          }
+          break;
+        }
+      }
+
+      if (eventsHeaderIndex != null) {
+        // Events section exists - find the last event line
+        int lastEventIndex = eventsHeaderIndex + 1;
+        for (int i = eventsHeaderIndex + 1; i < eventsSectionEndIndex!; i++) {
+          if (_isEventLine(lines[i])) {
+            lastEventIndex = i;
+          }
+        }
+
+        // Check if there are any events in the section
+        bool hasEvents = false;
+        for (int i = eventsHeaderIndex + 1; i < eventsSectionEndIndex!; i++) {
+          if (_isEventLine(lines[i])) {
+            hasEvents = true;
+            break;
+          }
+        }
+
+        final beforeInsert = lines.sublist(0, lastEventIndex + 1).join('\n');
+        final afterInsert = lines.sublist(lastEventIndex + 1).join('\n');
+
+        if (hasEvents) {
+          // Insert after the last event
+          if (afterInsert.isNotEmpty) {
+            // Add newline after the event
+            return '$beforeInsert\n$eventContent\n$afterInsert';
+          } else {
+            // At the end of events section
+            return '$beforeInsert\n$eventContent';
+          }
+        } else {
+          // No events exist - insert after header with a space
+          final afterHeader = lines.sublist(eventsHeaderIndex + 1).join('\n');
+          if (afterHeader.isNotEmpty) {
+            // Insert after header with spacing
+            return '$beforeInsert\n$eventContent\n\n$afterHeader';
+          } else {
+            // At the end of file
+            return '$beforeInsert\n\n$eventContent';
+          }
+        }
+      } else {
+        // No events section - create one
+        if (content.isNotEmpty && !content.endsWith('\n')) {
+          return '$content\n\n## Events\n\n$eventContent';
+        } else {
+          return '$content## Events\n\n$eventContent';
+        }
+      }
+    } catch (e) {
+      Log.e('?? DailyContentHelper: Error inserting event after last event',
+          error: e);
+      // Fallback: append at the end
+      if (content.isNotEmpty && !content.endsWith('\n')) {
+        return '$content\n\n$eventContent';
+      } else {
+        return '$content\n$eventContent';
+      }
+    }
+  }
+
+  /// Inserts a todo after the last existing todo in the tasks section.
+  /// If no tasks section exists, creates one. If no todos exist in the section,
+  /// inserts after the header with a space.
+  ///
+  /// [content] - The existing daily file content
+  /// [todoContent] - The new todo content (e.g., "- [ ] Task")
+  /// [todoHeaderRegex] - Regex pattern to match the tasks header
+  ///
+  /// Returns the updated content with the new todo inserted after the last todo.
+  static String insertAfterLastTodo(
+    String content,
+    String todoContent,
+    String todoHeaderRegex,
+  ) {
+    if (todoHeaderRegex.isEmpty) {
+      return content.isEmpty ? todoContent : '$content\n\n$todoContent';
+    }
+
+    try {
+      final regex = RegExp(todoHeaderRegex, multiLine: true);
+      final lines = content.split('\n');
+
+      // Find the tasks section header
+      int? tasksHeaderIndex;
+      int? tasksSectionEndIndex;
+
+      for (int i = 0; i < lines.length; i++) {
+        if (regex.hasMatch(lines[i])) {
+          tasksHeaderIndex = i;
+
+          // Find the end of the tasks section (next header or end of file)
+          tasksSectionEndIndex = i + 1;
+          while (tasksSectionEndIndex! < lines.length) {
+            final line = lines[tasksSectionEndIndex].trim();
+            if (line.isEmpty) {
+              tasksSectionEndIndex++;
+              continue;
+            }
+            if (line.startsWith('##') || line.startsWith('#')) {
+              break;
+            }
+            if (_isTodoLine(line)) {
+              tasksSectionEndIndex++;
+              continue;
+            }
+            // If it's not a todo line and not a header, it's the end of tasks section
+            break;
+          }
+          break;
+        }
+      }
+
+      if (tasksHeaderIndex != null) {
+        // Tasks section exists - find the last todo line
+        int lastTodoIndex = tasksHeaderIndex + 1;
+        for (int i = tasksHeaderIndex + 1; i < tasksSectionEndIndex!; i++) {
+          if (_isTodoLine(lines[i])) {
+            lastTodoIndex = i;
+          }
+        }
+
+        // Check if there are any todos in the section
+        bool hasTodos = false;
+        for (int i = tasksHeaderIndex + 1; i < tasksSectionEndIndex!; i++) {
+          if (_isTodoLine(lines[i])) {
+            hasTodos = true;
+            break;
+          }
+        }
+
+        final beforeInsert = lines.sublist(0, lastTodoIndex + 1).join('\n');
+        final afterInsert = lines.sublist(lastTodoIndex + 1).join('\n');
+
+        if (hasTodos) {
+          // Insert after the last todo
+          if (afterInsert.isNotEmpty) {
+            // Add newline after the todo
+            return '$beforeInsert\n$todoContent\n$afterInsert';
+          } else {
+            // At the end of tasks section
+            return '$beforeInsert\n$todoContent';
+          }
+        } else {
+          // No todos exist - insert after header with a space
+          final afterHeader = lines.sublist(tasksHeaderIndex + 1).join('\n');
+          if (afterHeader.isNotEmpty) {
+            // Insert after header with spacing
+            return '$beforeInsert\n$todoContent\n\n$afterHeader';
+          } else {
+            // At the end of file
+            return '$beforeInsert\n\n$todoContent';
+          }
+        }
+      } else {
+        // No tasks section - create one
+        if (content.isNotEmpty && !content.endsWith('\n')) {
+          return '$content\n\n## Tasks\n\n$todoContent';
+        } else {
+          return '$content## Tasks\n\n$todoContent';
+        }
+      }
+    } catch (e) {
+      Log.e('?? DailyContentHelper: Error inserting todo after last todo',
+          error: e);
+      // Fallback: append at the end
+      if (content.isNotEmpty && !content.endsWith('\n')) {
+        return '$content\n\n$todoContent';
+      } else {
+        return '$content\n$todoContent';
+      }
+    }
+  }
+
+  /// Check if a line is a todo line
+  static bool _isTodoLine(String line) {
+    return RegExp(r'^\s*-\s*\[([ x])?\]\s*').hasMatch(line);
+  }
 }

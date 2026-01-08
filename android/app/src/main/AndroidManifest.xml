@@ -19,6 +19,9 @@
     
     <!-- Exact alarm permission for precise notifications (Android 12+) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- Boot completed permission for widget auto-refresh after reboot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
     <application
         android:label="planova"
@@ -122,6 +125,19 @@
             <meta-data 
                 android:name="android.appwidget.provider"
                 android:resource="@xml/planova_widget_info" />
+        </receiver>
+
+        <!-- Widget Update Receiver for automatic refreshes -->
+        <receiver 
+            android:name="fr.rvier.planova.WidgetUpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="fr.rvier.planova.WIDGET_UPDATE" />
+            </intent-filter>
         </receiver>
     </application>
     

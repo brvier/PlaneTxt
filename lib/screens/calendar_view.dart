@@ -196,16 +196,22 @@ class _CalendarViewState extends State<CalendarView> {
           // Events: "- @HH:MM title"
           // Todos: "- [ ] title"
           final isEvent = content.startsWith('- @');
-          final headerRegex = isEvent
-              ? themeProvider.eventHeaderRegex
-              : themeProvider.todoHeaderRegex;
 
-          // Insert content after the matching header
-          final newContent = DailyContentHelper.insertAfterHeader(
-            currentContent,
-            content,
-            headerRegex,
-          );
+          // Insert content after the last item in the section
+          String newContent;
+          if (isEvent) {
+            newContent = DailyContentHelper.insertAfterLastEvent(
+              currentContent,
+              content,
+              themeProvider.eventHeaderRegex,
+            );
+          } else {
+            newContent = DailyContentHelper.insertAfterLastTodo(
+              currentContent,
+              content,
+              themeProvider.todoHeaderRegex,
+            );
+          }
 
           dailyFileProvider.saveDailyFile(context, dateString, newContent);
         },

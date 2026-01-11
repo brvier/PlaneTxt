@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+
 import 'package:planova/providers/daily_file_provider.dart';
 import 'package:planova/providers/directory_provider.dart';
 import 'package:planova/providers/note_file_provider.dart';
@@ -141,6 +143,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   /// Handle shared intents (ICS files, calendar events, etc.)
   Future<void> _handleSharedIntents() async {
+    if (!Platform.isAndroid) {
+      Log.d('📅 MainScreen: Skipping intent handling on non-Android platform');
+      return;
+    }
+
     try {
       Log.d('📅 MainScreen: Checking for shared intents...');
 
@@ -152,7 +159,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         Log.i(
             '📅 MainScreen: Shared intent processed successfully, selected date: $selectedDate');
 
-        // Navigate to the calendar view and select the date
+        // Navigate to calendar view and select the date
         if (selectedDate.isNotEmpty) {
           _navigateToDate(selectedDate);
         }

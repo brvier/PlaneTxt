@@ -400,46 +400,46 @@ class PreferencesScreen extends StatelessWidget {
   Future<void> _selectCustomStorageLocation(
       BuildContext context, ThemeProvider themeProvider) async {
     try {
-      // Show a dialog explaining permissions for Android 11+
+      // Android-specific: show permission dialog for Android 11+
       if (Platform.isAndroid) {
         final androidInfo = await DeviceInfoPlugin().androidInfo;
         if (androidInfo.version.sdkInt >= 30) {
-          // ignore: use_build_context_synchronously
           final shouldProceed = await _showPermissionExplanationDialog(context);
           if (!shouldProceed) return;
         }
       }
 
-      // Request storage permissions first
-      final hasPermission = await PermissionHelper.requestStoragePermission();
-      if (!hasPermission) {
-        if (context.mounted) {
-          // Show a dialog with instructions to enable permission
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Permission Required'),
-              content: const Text(
-                'Storage permission is required to select a custom location.\n\n'
-                'Please go to Settings > Apps > Planova > Permissions and enable "All files access" or "Storage" permission.',
+      // Request storage permissions only on Android/iOS
+      if (Platform.isAndroid || Platform.isIOS) {
+        final hasPermission = await PermissionHelper.requestStoragePermission();
+        if (!hasPermission) {
+          if (context.mounted) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Permission Required'),
+                content: const Text(
+                  'Storage permission is required to select a custom location.\n\n'
+                  'Please go to Settings > Apps > Planova > Permissions and enable "All files access" or "Storage" permission.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('OK'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      openAppSettings();
+                    },
+                    child: const Text('Open Settings'),
+                  ),
+                ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    openAppSettings();
-                  },
-                  child: const Text('Open Settings'),
-                ),
-              ],
-            ),
-          );
+            );
+          }
+          return;
         }
-        return;
       }
 
       final String? selectedDirectory =

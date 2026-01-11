@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:planova/constants/app_constants.dart';
@@ -91,7 +93,9 @@ class WidgetService {
   /// Initialize the widget service
   static Future<void> initialize() async {
     try {
-      await HomeWidget.setAppGroupId('group.fr.rvier.planova');
+      if (Platform.isAndroid || Platform.isIOS) {
+        await HomeWidget.setAppGroupId('group.fr.rvier.planova');
+      }
       Log.i('📱 WidgetService: Initialized successfully');
     } catch (e) {
       Log.e('❌ WidgetService: Error initializing', error: e);

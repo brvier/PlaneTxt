@@ -1,0 +1,72 @@
+<div class="min-h-screen flex items-center justify-center bg-gray-100">
+    <div class="max-w-md w-full space-y-8 p-8">
+        <div>
+            <h2 class="text-3xl font-bold text-center">Sign in to PlanovaSAAS</h2>
+            <p class="mt-2 text-center text-sm text-gray-600">
+                Enter your credentials to access your encrypted files
+            </p>
+        </div>
+
+        <form class="mt-8 space-y-6" hx-post="/api/auth/login" hx-swap="none">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Email address</label>
+                <input type="email" name="email" required 
+                       class="mt-1 w-full border border-gray-300 rounded-md shadow-sm px-3 py-2"
+                       placeholder="you@example.com">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" name="password" required 
+                       class="mt-1 w-full border border-gray-300 rounded-md shadow-sm px-3 py-2"
+                       placeholder="Your password"
+                       id="login-password">
+            </div>
+
+            <div>
+                <button type="submit" 
+                        class="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                    Sign in
+                </button>
+            </div>
+        </form>
+
+        <div class="mt-6 text-center">
+            <a href="/register" class="font-medium text-blue-600 hover:text-blue-500">
+                Don't have an account? Register
+            </a>
+        </div>
+
+        <div id="error-message" class="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded hidden">
+            <!-- Error messages will be shown here via HTMX -->
+        </div>
+    </div>
+
+    <script>
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            const errorDiv = document.getElementById('error-message');
+            const response = evt.detail.xhr.response;
+            
+            if (evt.detail.xhr.status >= 400) {
+                try {
+                    const errorData = JSON.parse(response);
+                    errorDiv.textContent = errorData.error || 'Login failed';
+                    errorDiv.classList.remove('hidden');
+                } catch (e) {
+                    errorDiv.textContent = 'Login failed';
+                    errorDiv.classList.remove('hidden');
+                }
+            } else {
+                errorDiv.classList.add('hidden');
+            }
+        });
+
+        document.body.addEventListener('htmx:beforeRequest', function(evt) {
+            const password = document.getElementById('login-password').value;
+            if (password) {
+                passwordCache.setPassword(password);
+                evt.detail.parameters['encrypted_password'] = encryptPassword(password);
+            }
+        });
+    </script>
+</div>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlanovaSAAS</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="/static/js/encryption.js"></script>
+    <script src="/static/js/key_derivation.js"></script>
+    <script src="/static/js/password_cache.js"></script>
+    <script src="/static/js/sync.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/htmx.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div id="app-container">
+        {{if .IsAuthenticated}}
+            {{template "dashboard/index.html"}}
+        {{else}}
+            {{template "auth/login.html"}}
+        {{end}}
+    </div>
+
+    <script>
+        const passwordCache = new PasswordCache();
+        
+        document.addEventListener('htmx:beforeSwap', function(evt) {
+            console.log('Content about to swap:', evt.detail);
+        });
+
+        document.addEventListener('htmx:afterSwap', function(evt) {
+            console.log('Content swapped:', evt.detail);
+            syncManager.onContentUpdated();
+        });
+    </script>
+</body>
+</html>

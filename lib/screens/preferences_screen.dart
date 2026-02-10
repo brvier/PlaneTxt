@@ -10,6 +10,7 @@ import 'package:planova/providers/theme_provider.dart';
 import 'package:planova/utils/permission_helper.dart';
 import 'package:planova/widgets/theme_selector.dart';
 import 'package:planova/screens/widget_debug_screen.dart';
+import 'package:planova/services/widget_service.dart';
 import 'package:provider/provider.dart';
 
 class PreferencesScreen extends StatelessWidget {
@@ -175,6 +176,23 @@ class PreferencesScreen extends StatelessWidget {
 
           const Divider(),
 
+          // Widget health
+          _buildSection(
+            context,
+            title: 'Widget Health',
+            children: [
+              ListTile(
+                leading: const Icon(Icons.verified_user),
+                title: const Text('Check Widget Permissions'),
+                subtitle: const Text('Storage and exact alarm access'),
+                trailing: const Icon(Icons.refresh),
+                onTap: () => _checkWidgetHealth(context),
+              ),
+            ],
+          ),
+
+          const Divider(),
+
           // Debug section
           _buildSection(
             context,
@@ -279,6 +297,73 @@ class PreferencesScreen extends StatelessWidget {
         ),
         ...children,
       ],
+    );
+  }
+
+  Future<void> _checkWidgetHealth(BuildContext context) async {
+    if (!context.mounted) return;
+
+    final results = <String>[];
+
+    // Storage permission
+    final hasStorage = await PermissionHelper.hasStoragePermission();
+    results.add(hasStorage
+        ? '✓ Storage permission granted'
+        : '⚠ Storage permission missing');
+
+    // Exact alarm (Android 12+)
+    String exactAlarmStatus = '✓ Exact alarms not required (pre-Android 12)';
+    if (Platform.isAndroid) {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      if (androidInfo.version.sdkInt >= 31) {
+        final allowed = await WidgetService.canScheduleExactAlarms();
+        exactAlarmStatus = allowed
+            ? '✓ Exact alarms allowed'
+            : '⚠ Exact alarms denied — open Settings to allow';
+      }
+    }
+    results.add(exactAlarmStatus);
+
+    // Boot permission (install-time, no runtime prompt)
+    results.add('ℹ Boot completed permission is install-time only');
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Widget Health'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final line in results)
+              Padding(
+                  padding: const EdgeInsets.only(bottom: 8), child: Text(line)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+          if (Platform.isAndroid)
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                WidgetService.openAlarmPermissionSettings();
+              },
+              child: const Text('Alarm Settings'),
+            ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              openAppSettings();
+            },
+            child: const Text('Open App Settings'),
+          ),
+        ],
+      ),
     );
   }
 

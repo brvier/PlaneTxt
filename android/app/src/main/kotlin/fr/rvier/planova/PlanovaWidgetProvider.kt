@@ -6,7 +6,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Color
+import android.util.Log
 import android.widget.RemoteViews
+import es.antonborri.home_widget.HomeWidgetPlugin
 import es.antonborri.home_widget.HomeWidgetProvider
 
 class PlanovaWidgetProvider : HomeWidgetProvider() {
@@ -16,13 +18,36 @@ class PlanovaWidgetProvider : HomeWidgetProvider() {
         appWidgetIds: IntArray,
         widgetData: SharedPreferences
     ) {
+        val todayDate = WidgetDataManager.getTodayDateString()
+        val storedDate = widgetData.getString("widget_date", "")
+        Log.d(TAG, "Refreshing widget data (stored: $storedDate, today: $todayDate)")
+
+        WidgetDataManager.loadAndUpdateWidget(context, triggerWidgetUpdate = false)
+        val refreshedData = HomeWidgetPlugin.getData(context)
+
         // There may be multiple widgets active, so update all of them
         for (appWidgetId in appWidgetIds) {
-            updateAppWidget(context, appWidgetManager, appWidgetId, widgetData)
+            updateAppWidget(context, appWidgetManager, appWidgetId, refreshedData)
         }
+        // Cancel legacy alarm schedule; rely on WorkManager
+        WidgetUpdateReceiver.cancelPeriodicUpdates(context)
+        WidgetRefreshWorker.schedule(context)
+    }
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        WidgetUpdateReceiver.cancelPeriodicUpdates(context)
+        WidgetRefreshWorker.schedule(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        WidgetUpdateReceiver.cancelPeriodicUpdates(context)
+        WidgetRefreshWorker.cancel(context)
     }
 
     companion object {
+        private const val TAG = "PlanovaWidgetProvider"
         internal fun updateAppWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,

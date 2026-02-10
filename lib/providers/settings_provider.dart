@@ -1,7 +1,10 @@
+import 'package:home_widget/home_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:flutter/material.dart';
+
 import 'package:planova/constants/app_constants.dart';
 import 'package:planova/utils/logger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// Provider for managing general app settings
 class SettingsProvider extends ChangeNotifier {
@@ -51,6 +54,17 @@ class SettingsProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _customStoragePath = prefs.getString(AppConstants.storagePathKey);
       _logger.debug('Loaded custom storage path: $_customStoragePath');
+      if (_customStoragePath != null && _customStoragePath!.isNotEmpty) {
+        try {
+          await HomeWidget.saveWidgetData<String>(
+            AppConstants.storagePathKey,
+            _customStoragePath!,
+          );
+        } catch (e, stackTrace) {
+          _logger.warning('Failed to sync widget storage path on load',
+              error: e, stackTrace: stackTrace);
+        }
+      }
     } catch (e, stackTrace) {
       _logger.error('Error loading storage path',
           error: e, stackTrace: stackTrace);
@@ -91,6 +105,16 @@ class SettingsProvider extends ChangeNotifier {
       } else {
         await prefs.remove(AppConstants.storagePathKey);
         _logger.debug('Storage path removed');
+      }
+
+      try {
+        await HomeWidget.saveWidgetData<String>(
+          AppConstants.storagePathKey,
+          path ?? '',
+        );
+      } catch (e, stackTrace) {
+        _logger.warning('Failed to sync widget storage path',
+            error: e, stackTrace: stackTrace);
       }
 
       notifyListeners();

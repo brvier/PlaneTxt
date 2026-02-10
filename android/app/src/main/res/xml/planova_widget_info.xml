@@ -4,5 +4,6 @@
     android:minHeight="40dp"
     android:initialLayout="@layout/planova_widget_layout"
     android:resizeMode="horizontal|vertical"
-    android:widgetCategory="home_screen">
+    android:widgetCategory="home_screen"
+    android:updatePeriodMillis="0">
 </appwidget-provider>

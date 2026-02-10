@@ -3,7 +3,7 @@ package fr.rvier.planova
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
+import android.os.Build
 import android.text.format.DateFormat
 import android.util.Log
 import es.antonborri.home_widget.HomeWidgetPlugin
@@ -14,7 +14,6 @@ import java.util.Locale
 
 object WidgetDataManager {
     private const val TAG = "WidgetDataManager"
-    private const val SHARED_PREFERENCES_NAME = "group.fr.rvier.planova"
     private const val DATE_FORMAT = "yyyyMMdd"
     private const val WIDGET_DAILY_CONTENT_KEY = "widget_daily_content"
     private const val WIDGET_DATE_KEY = "widget_date"
@@ -22,7 +21,7 @@ object WidgetDataManager {
     /**
      * Main entry point: load data and update widget
      */
-    fun loadAndUpdateWidget(context: Context) {
+    fun loadAndUpdateWidget(context: Context, triggerWidgetUpdate: Boolean = true) {
         try {
             Log.i(TAG, "Loading and updating widget")
             
@@ -34,8 +33,17 @@ object WidgetDataManager {
             if (!FileHelper.hasManageExternalStoragePermission(context)) {
                 val message = "Permission denied - Cannot access storage files"
                 Log.e(TAG, message)
-                FileHelper.showWidgetError(context, message)
+                FileHelper.showWidgetError(context, message, triggerWidgetUpdate)
                 return
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                if (!alarmManager.canScheduleExactAlarms()) {
+                    val message = "Exact alarms disabled - please allow Planova"
+                    Log.w(TAG, message)
+                    FileHelper.showWidgetError(context, message, triggerWidgetUpdate)
+                }
             }
             
             // Get storage path
@@ -43,7 +51,7 @@ object WidgetDataManager {
             if (storagePath == null) {
                 val message = "Storage path not configured"
                 Log.e(TAG, message)
-                FileHelper.showWidgetError(context, message)
+                FileHelper.showWidgetError(context, message, triggerWidgetUpdate)
                 return
             }
             
@@ -55,7 +63,7 @@ object WidgetDataManager {
             if (!FileHelper.fileExists(dailyFilePath)) {
                 val message = "No content for today"
                 Log.i(TAG, message)
-                updateWidgetContent(context, message, todayDate)
+                updateWidgetContent(context, message, todayDate, triggerWidgetUpdate)
                 return
             }
             
@@ -64,14 +72,14 @@ object WidgetDataManager {
             if (content == null) {
                 val message = "⚠️ Error: Failed to read file"
                 Log.e(TAG, message)
-                FileHelper.showWidgetError(context, message)
+                FileHelper.showWidgetError(context, message, triggerWidgetUpdate)
                 return
             }
             
             if (content.isBlank()) {
                 val message = "No content for today"
                 Log.i(TAG, message)
-                updateWidgetContent(context, message, todayDate)
+                updateWidgetContent(context, message, todayDate, triggerWidgetUpdate)
                 return
             }
             
@@ -83,13 +91,13 @@ object WidgetDataManager {
             val widgetContent = MarkdownParser.formatWidgetContent(events, todos)
             
             // Update SharedPreferences with widget content
-            updateWidgetContent(context, widgetContent, todayDate)
+            updateWidgetContent(context, widgetContent, todayDate, triggerWidgetUpdate)
             
             Log.i(TAG, "Widget updated successfully")
         } catch (e: Exception) {
             val message = "⚠️ Error: ${e.message ?: "Unknown error"}"
             Log.e(TAG, "Error loading and updating widget", e)
-            FileHelper.showWidgetError(context, message)
+            FileHelper.showWidgetError(context, message, triggerWidgetUpdate)
         }
     }
     
@@ -104,12 +112,14 @@ object WidgetDataManager {
     /**
      * Update SharedPreferences with widget content
      */
-    private fun updateWidgetContent(context: Context, content: String, date: String) {
+    private fun updateWidgetContent(
+        context: Context,
+        content: String,
+        date: String,
+        triggerWidgetUpdate: Boolean = true
+    ) {
         try {
-            val prefs = context.getSharedPreferences(
-                SHARED_PREFERENCES_NAME,
-                Context.MODE_PRIVATE
-            )
+            val prefs = HomeWidgetPlugin.getData(context)
             
             prefs.edit()
                 .putString(WIDGET_DAILY_CONTENT_KEY, content)
@@ -118,8 +128,10 @@ object WidgetDataManager {
             
             Log.d(TAG, "Updated widget content: ${content.length} characters")
             
-            // Trigger widget UI refresh
-            triggerWidgetUpdate(context)
+            if (triggerWidgetUpdate) {
+                // Trigger widget UI refresh
+                triggerWidgetUpdate(context)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error updating widget content", e)
         }

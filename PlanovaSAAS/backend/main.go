@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 
 	"github.com/planovasaas/backend/internal/config"
 	"github.com/planovasaas/backend/internal/database"
@@ -9,7 +10,6 @@ import (
 	"github.com/planovasaas/backend/internal/handlers/dashboard"
 	"github.com/planovasaas/backend/internal/handlers/files"
 	"github.com/planovasaas/backend/internal/handlers/sync"
-	"net/http"
 )
 
 func main() {
@@ -34,8 +34,8 @@ func main() {
 
 	mux.HandleFunc("/api/auth/register", auth.Register(db))
 	mux.HandleFunc("/api/auth/login", auth.Login(db))
-	mux.HandleFunc("/api/auth/logout", auth.Logout)
-	mux.HandleFunc("/api/sync/register-device", auth.RegisterDevice(db))
+	mux.HandleFunc("/api/auth/logout", auth.Logout())
+	mux.HandleFunc("/api/auth/register-device", auth.RegisterDevice(db))
 
 	mux.HandleFunc("/api/sync/pull", sync.Pull(db))
 	mux.HandleFunc("/api/sync/push", sync.Push(db))
@@ -46,19 +46,8 @@ func main() {
 	mux.HandleFunc("/api/files/", files.DeleteFile(db, cfg.StoragePath))
 
 	mux.HandleFunc("/dashboard", dashboard.HTML(db))
-
-	mux.Handle("/static/", http.StripPrefix(http.FileServer(http.Dir("./frontend/static")))
-
-	api := mux.PathPrefix("/api").Subrouter()
-
-	api.Use(func(next http.Handler) http.Handler {
-		http.StripPrefix("/api").Use(func(next http.Handler) http.HandlerFunc {
-			return func(w http.ResponseWriter, r *http.Request) {
-				log.Printf("%s %s %s", r.Method, r.URL.Path)
-				next.ServeHTTP(w, r)
-			}
-		})
+	mux.Handle("/static/", http.StripPrefix("/static", http.FileServer(http.Dir("./frontend/static"))))
 
 	log.Printf("Server starting on %s", cfg.Port)
-	log.Fatal(mux.ListenAndServe(cfg.Port))
+	log.Fatal(http.ListenAndServe(cfg.Port, mux))
 }

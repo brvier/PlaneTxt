@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:planova/constants/app_constants.dart';
@@ -8,12 +10,15 @@ import 'package:planova/models/note_file.dart';
 import 'package:planova/themes/app_themes.dart';
 import 'package:planova/utils/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 
 class WidgetService {
   static const String _widgetName = 'PlanovaWidget';
   static const String _dailyContentKey = 'widget_daily_content';
   static const String _notesContentKey = 'widget_notes_content';
   static const String _dateKey = 'widget_date';
+
+  static const String _alarmPermissionChannel = 'planova/alarm_permission';
 
   static AppTheme _resolveAppTheme(SharedPreferences prefs) {
     final rawIndex =
@@ -99,6 +104,33 @@ class WidgetService {
       Log.i('📱 WidgetService: Initialized successfully');
     } catch (e) {
       Log.e('❌ WidgetService: Error initializing', error: e);
+    }
+  }
+
+  /// Check if exact alarms are allowed (Android 12+). Returns true on other platforms.
+  static Future<bool> canScheduleExactAlarms() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final methodChannel = const MethodChannel(_alarmPermissionChannel);
+      final result =
+          await methodChannel.invokeMethod<bool>('canScheduleExactAlarms');
+      return result ?? true;
+    } catch (e) {
+      Log.w('⚠️ WidgetService: canScheduleExactAlarms failed, assuming allowed',
+          error: e);
+      return true;
+    }
+  }
+
+  /// Open exact alarm permission settings (Android 12+)
+  static Future<void> openAlarmPermissionSettings() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final methodChannel = const MethodChannel(_alarmPermissionChannel);
+      await methodChannel.invokeMethod('openAlarmPermissionSettings');
+    } catch (e) {
+      Log.e('❌ WidgetService: Failed to open alarm permission settings',
+          error: e);
     }
   }
 
@@ -276,7 +308,7 @@ class WidgetService {
     if (events.isNotEmpty) {
       buffer.writeln('📅 Events');
       for (final event in events) {
-        buffer.writeln('  ◦ $event');
+        buffer.writeln('  $event');
       }
       buffer.writeln();
     }
@@ -285,7 +317,7 @@ class WidgetService {
     if (tasks.isNotEmpty) {
       buffer.writeln('✓ Tasks');
       for (final task in tasks) {
-        buffer.writeln('  ◦ $task');
+        buffer.writeln('  $task');
       }
     }
 

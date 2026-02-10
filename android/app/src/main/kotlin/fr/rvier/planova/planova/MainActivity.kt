@@ -1,7 +1,11 @@
 package fr.rvier.planova
 
+import android.app.AlarmManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -11,6 +15,7 @@ import java.io.InputStreamReader
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "fr.rvier.planova/intent"
+    private val ALARM_CHANNEL = "planova/alarm_permission"
     private var sharedText: String? = null
     private var sharedUri: Uri? = null
 
@@ -46,20 +51,24 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ALARM_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "canScheduleExactAlarms" -> result.success(canScheduleExactAlarms())
+                    "openAlarmPermissionSettings" -> {
+                        openAlarmPermissionSettings()
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d("MainActivity", "onCreate called, handling intent")
-        
-        // Schedule periodic widget updates
-        try {
-            WidgetUpdateReceiver.schedulePeriodicUpdates(this)
-            Log.d("MainActivity", "Widget auto-refresh scheduled successfully")
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to schedule widget updates", e)
-        }
-        
+
         handleIntent(intent)
     }
 
@@ -143,6 +152,25 @@ class MainActivity : FlutterActivity() {
             else -> {
                 Log.d("MainActivity", "Unknown intent action: ${intent.action}")
             }
+        }
+    }
+
+    private fun canScheduleExactAlarms(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true
+        }
+    }
+
+    private fun openAlarmPermissionSettings() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                data = Uri.parse("package:$packageName")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
         }
     }
     

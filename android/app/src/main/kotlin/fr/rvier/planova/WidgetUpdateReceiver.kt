@@ -26,32 +26,44 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
                 // Reload widget on these events
                 checkAndUpdateWidget(context)
             }
+            AppWidgetManager.ACTION_APPWIDGET_ENABLED -> {
+                // WorkManager is scheduled by the widget provider
+                WidgetRefreshWorker.schedule(context)
+            }
+            AppWidgetManager.ACTION_APPWIDGET_DISABLED -> {
+                // Stop schedule when last widget is removed
+                cancelPeriodicUpdates(context)
+                WidgetRefreshWorker.cancel(context)
+                FileHelper.clearWidgetContent(context)
+            }
         }
     }
 
     companion object {
-        private const val SHARED_PREFERENCES_NAME = "group.fr.rvier.planova"
-        private const val UPDATE_INTERVAL_MILLIS = 30L * 60L * 1000L // 30 minutes
-        
-        /**
-         * Check and update widget with data from files
-         */
-        fun checkAndUpdateWidget(context: Context) {
+         private const val SHARED_PREFERENCES_NAME = "group.fr.rvier.planova"
+         private const val UPDATE_INTERVAL_MILLIS = 30L * 60L * 1000L // 30 minutes
+         private const val REQUEST_CODE = 0
+ 
+         /**
+          * Check and update widget with data from files
+          */
+         fun checkAndUpdateWidget(context: Context) {
+
             try {
                 Log.d("WidgetUpdateReceiver", "Checking and updating widget")
                 
                 // Load data from files and update widget
                 WidgetDataManager.loadAndUpdateWidget(context)
-                
-                // Schedule next update (30 minutes from now)
-                schedulePeriodicUpdates(context)
+
+                // Ensure WorkManager periodic refresh stays scheduled
+                WidgetRefreshWorker.schedule(context)
                 
                 Log.d("WidgetUpdateReceiver", "Widget update completed, next scheduled")
             } catch (e: Exception) {
                 Log.e("WidgetUpdateReceiver", "Error updating widget", e)
                 
                 // Still schedule next update even on error
-                schedulePeriodicUpdates(context)
+                WidgetRefreshWorker.schedule(context)
             }
         }
 
@@ -67,23 +79,43 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
 
                 val pendingIntent = PendingIntent.getBroadcast(
                     context,
-                    0,
+                    REQUEST_CODE,
                     updateIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
                 val triggerAt = System.currentTimeMillis() + UPDATE_INTERVAL_MILLIS
-                
+
                 // Cancel any existing alarm
                 alarmManager.cancel(pendingIntent)
-                
+
+                val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    alarmManager.canScheduleExactAlarms()
+                } else {
+                    true
+                }
+
                 // Schedule new alarm (single-shot, will reschedule after firing)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerAt,
-                        pendingIntent
-                    )
+                    if (canScheduleExact) {
+                        alarmManager.setExactAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerAt,
+                            pendingIntent
+                        )
+                    } else {
+                        // Fallback: inexact repeating if exact not allowed
+                        alarmManager.setRepeating(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerAt,
+                            UPDATE_INTERVAL_MILLIS,
+                            pendingIntent
+                        )
+                        Log.w(
+                            "WidgetUpdateReceiver",
+                            "Exact alarms not permitted; using inexact repeating"
+                        )
+                    }
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
@@ -98,10 +130,29 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
                         pendingIntent
                     )
                 }
-                
+
                 Log.d("WidgetUpdateReceiver", "Next widget update scheduled at ${Date(triggerAt)}")
             } catch (e: Exception) {
                 Log.e("WidgetUpdateReceiver", "Failed to schedule widget update", e)
+            }
+        }
+
+        fun cancelPeriodicUpdates(context: Context) {
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val updateIntent = Intent(context, WidgetUpdateReceiver::class.java).apply {
+                    action = "fr.rvier.planova.WIDGET_UPDATE"
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    REQUEST_CODE,
+                    updateIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.cancel(pendingIntent)
+                Log.d("WidgetUpdateReceiver", "Cancelled widget update alarm")
+            } catch (e: Exception) {
+                Log.e("WidgetUpdateReceiver", "Failed to cancel widget update alarm", e)
             }
         }
     }

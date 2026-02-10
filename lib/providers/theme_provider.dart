@@ -1,9 +1,12 @@
+import 'package:home_widget/home_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:flutter/material.dart';
+
 import 'package:planova/constants/app_constants.dart';
 import 'package:planova/services/widget_service.dart';
 import 'package:planova/themes/app_themes.dart';
 import 'package:planova/utils/logger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
@@ -80,6 +83,17 @@ class ThemeProvider extends ChangeNotifier {
     _customStoragePath = prefs.getString(_storagePathKey);
     Log.d('🔍 ThemeProvider: Loaded custom storage path: $_customStoragePath');
     Log.d('🔍 ThemeProvider: Storage path key: $_storagePathKey');
+    if (_customStoragePath != null && _customStoragePath!.isNotEmpty) {
+      try {
+        await HomeWidget.saveWidgetData<String>(
+          AppConstants.storagePathKey,
+          _customStoragePath!,
+        );
+      } catch (e, stackTrace) {
+        Log.w('⚠️ ThemeProvider: Failed to sync widget storage path on load',
+            error: e, stackTrace: stackTrace);
+      }
+    }
   }
 
   Future<void> _loadTemplate() async {
@@ -176,6 +190,15 @@ class ThemeProvider extends ChangeNotifier {
       Log.d('💾 ThemeProvider: Removing storage path from SharedPreferences');
       await prefs.remove(_storagePathKey);
       Log.d('💾 ThemeProvider: Path removed successfully');
+    }
+    try {
+      await HomeWidget.saveWidgetData<String>(
+        AppConstants.storagePathKey,
+        path ?? '',
+      );
+    } catch (e, stackTrace) {
+      Log.w('⚠️ ThemeProvider: Failed to sync widget storage path',
+          error: e, stackTrace: stackTrace);
     }
     notifyListeners();
   }

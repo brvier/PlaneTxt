@@ -4,20 +4,52 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Environment
 import android.util.Log
+import es.antonborri.home_widget.HomeWidgetPlugin
 import java.io.File
 
 object FileHelper {
     private const val TAG = "FileHelper"
     private const val SHARED_PREFERENCES_NAME = "group.fr.rvier.planova"
+    private const val FLUTTER_SHARED_PREFERENCES_NAME = "FlutterSharedPreferences"
+    private const val FLUTTER_KEY_PREFIX = "flutter."
     private const val STORAGE_PATH_KEY = "storage_path"
     private const val ORG_DIR_NAME = "Org"
     private const val DAILIES_DIR_NAME = "dailies"
     private const val WIDGET_DAILY_CONTENT_KEY = "widget_daily_content"
+    private const val WIDGET_DATE_KEY = "widget_date"
 
     /**
      * Get storage path from SharedPreferences or default
      */
     fun getStoragePath(context: Context): String? {
+        val widgetPrefs = HomeWidgetPlugin.getData(context)
+        val widgetPath = widgetPrefs.getString(STORAGE_PATH_KEY, null)
+        if (!widgetPath.isNullOrEmpty()) {
+            val dir = File(widgetPath)
+            if (dir.exists() && dir.isDirectory) {
+                Log.d(TAG, "Using widget storage path: $widgetPath")
+                return widgetPath
+            }
+            Log.w(TAG, "Widget storage path does not exist: $widgetPath")
+        }
+
+        val flutterPrefs = context.getSharedPreferences(
+            FLUTTER_SHARED_PREFERENCES_NAME,
+            Context.MODE_PRIVATE
+        )
+        val flutterPath = flutterPrefs.getString(
+            "${FLUTTER_KEY_PREFIX}$STORAGE_PATH_KEY",
+            null
+        ) ?: flutterPrefs.getString(STORAGE_PATH_KEY, null)
+        if (!flutterPath.isNullOrEmpty()) {
+            val dir = File(flutterPath)
+            if (dir.exists() && dir.isDirectory) {
+                Log.d(TAG, "Using Flutter storage path: $flutterPath")
+                return flutterPath
+            }
+            Log.w(TAG, "Flutter storage path does not exist: $flutterPath")
+        }
+
         val prefs = context.getSharedPreferences(
             SHARED_PREFERENCES_NAME,
             Context.MODE_PRIVATE
@@ -103,20 +135,36 @@ object FileHelper {
     /**
      * Show error message on widget
      */
-    fun showWidgetError(context: Context, message: String) {
+    fun showWidgetError(
+        context: Context,
+        message: String,
+        triggerWidgetUpdate: Boolean = true
+    ) {
         try {
             Log.w(TAG, "Showing widget error: $message")
             
-            val prefs = context.getSharedPreferences(
-                SHARED_PREFERENCES_NAME,
-                Context.MODE_PRIVATE
-            )
-            prefs.edit().putString(WIDGET_DAILY_CONTENT_KEY, message).apply()
+            val prefs = HomeWidgetPlugin.getData(context)
+            val todayDate = WidgetDataManager.getTodayDateString()
+            prefs.edit()
+                .putString(WIDGET_DAILY_CONTENT_KEY, message)
+                .putString(WIDGET_DATE_KEY, todayDate)
+                .apply()
             
-            // Trigger widget update to show error
-            WidgetDataManager.triggerWidgetUpdate(context)
+            if (triggerWidgetUpdate) {
+                // Trigger widget update to show error
+                WidgetDataManager.triggerWidgetUpdate(context)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error showing widget error", e)
+        }
+    }
+
+    fun clearWidgetContent(context: Context) {
+        try {
+            val prefs = HomeWidgetPlugin.getData(context)
+            prefs.edit().remove(WIDGET_DAILY_CONTENT_KEY).apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing widget content", e)
         }
     }
 }

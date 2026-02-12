@@ -123,7 +123,7 @@ class _CalendarViewState extends State<CalendarView> {
 
   Widget _buildDailyContent(DailyFileProvider dailyFileProvider) {
     final dateString = _formatDate(_selectedDay!);
-    final dailyFile = dailyFileProvider.getDailyFile(dateString);
+    final dailyFile = dailyFileProvider.getDailyFileFromCache(dateString);
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final initialContent = dailyFile?.content ?? themeProvider.dailyTemplate;
 
@@ -179,13 +179,18 @@ class _CalendarViewState extends State<CalendarView> {
   }
 
   void _showQuickAddModal(
-      BuildContext context, DailyFileProvider dailyFileProvider) {
+      BuildContext context, DailyFileProvider dailyFileProvider) async {
     if (_selectedDay == null) return;
 
     final dateString = _formatDate(_selectedDay!);
-    final dailyFile = dailyFileProvider.getDailyFile(dateString);
+
+    // Ensure daily file is loaded (check disk if not in memory)
+    final dailyFile = await dailyFileProvider.ensureDailyFileLoaded(dateString);
+
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final currentContent = dailyFile?.content ?? themeProvider.dailyTemplate;
+
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
@@ -253,8 +258,8 @@ class _CalendarViewState extends State<CalendarView> {
       DateTime focusedDay, DailyFileProvider dailyFileProvider,
       {bool isSelected = false, bool isToday = false}) {
     final dateString = _formatDate(day);
-    // Optimize: Get daily file once and reuse it for all checks
-    final dailyFile = dailyFileProvider.getDailyFile(dateString);
+    // Optimize: Get daily file once and reuse it for all checks (use cache for UI)
+    final dailyFile = dailyFileProvider.getDailyFileFromCache(dateString);
     final undoneTodoCount = dailyFile != null && dailyFile.content.isNotEmpty
         ? MarkdownParser.parseTasks(dailyFile.content)
             .where((task) => !task.isCompleted)
@@ -383,7 +388,7 @@ class _CalendarViewState extends State<CalendarView> {
 
   Widget _buildTasksSection(
       DailyFileProvider dailyFileProvider, String dateString) {
-    final dailyFile = dailyFileProvider.getDailyFile(dateString);
+    final dailyFile = dailyFileProvider.getDailyFileFromCache(dateString);
     if (dailyFile == null || dailyFile.content.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -462,7 +467,7 @@ class _CalendarViewState extends State<CalendarView> {
 
   Widget _buildNotesSection(
       DailyFileProvider dailyFileProvider, String dateString) {
-    final dailyFile = dailyFileProvider.getDailyFile(dateString);
+    final dailyFile = dailyFileProvider.getDailyFileFromCache(dateString);
     if (dailyFile == null || dailyFile.content.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -559,7 +564,8 @@ class _CalendarViewState extends State<CalendarView> {
     for (int i = 1; i <= 30; i++) {
       final checkDate = currentDateTime.subtract(Duration(days: i));
       final checkDateString = _formatDate(checkDate);
-      final dailyFile = dailyFileProvider.getDailyFile(checkDateString);
+      final dailyFile =
+          dailyFileProvider.getDailyFileFromCache(checkDateString);
 
       if (dailyFile != null && dailyFile.content.isNotEmpty) {
         final tasks = MarkdownParser.parseTasks(dailyFile.content);
@@ -596,11 +602,12 @@ class _CalendarViewState extends State<CalendarView> {
   }
 
   void _performRefill(BuildContext context, DailyFileProvider dailyFileProvider,
-      List<RefillTodo> selectedTodos, String targetDate) {
+      List<RefillTodo> selectedTodos, String targetDate) async {
     final targetDateString = targetDate;
 
-    // Get target date's content
-    final targetDailyFile = dailyFileProvider.getDailyFile(targetDateString);
+    // Ensure target date file is loaded (check disk if not in memory)
+    final targetDailyFile =
+        await dailyFileProvider.ensureDailyFileLoaded(targetDateString);
     String targetContent = targetDailyFile?.content ?? '';
 
     // Add todos to target date
@@ -618,7 +625,7 @@ class _CalendarViewState extends State<CalendarView> {
     for (final entry in todosByDate.entries) {
       final sourceDate = entry.key;
       final todos = entry.value;
-      final sourceDailyFile = dailyFileProvider.getDailyFile(sourceDate);
+      final sourceDailyFile = await dailyFileProvider.getDailyFile(sourceDate);
 
       if (sourceDailyFile != null) {
         String newSourceContent = sourceDailyFile.content;
@@ -630,21 +637,24 @@ class _CalendarViewState extends State<CalendarView> {
                 type: 'task',
               ));
         }
-        dailyFileProvider.saveDailyFile(context, sourceDate, newSourceContent);
+        if (context.mounted) {
+          dailyFileProvider.saveDailyFile(
+              context, sourceDate, newSourceContent);
+        }
       }
     }
 
-    // Add todos to today
+    // Add todos to target date
     for (final todo in selectedTodos) {
       targetContent += '${todo.content}\n';
     }
 
-    dailyFileProvider.saveDailyFile(context, targetDateString, targetContent);
-
-    // Refresh the UI
-    setState(() {});
-
     if (context.mounted) {
+      dailyFileProvider.saveDailyFile(context, targetDateString, targetContent);
+
+      // Refresh the UI
+      setState(() {});
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(

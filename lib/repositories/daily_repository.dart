@@ -237,9 +237,42 @@ class DailyRepository {
     return allFiles;
   }
 
-  /// Get daily file by date
+  /// Get daily file by date from cache
   DailyFile? getByDate(String date) {
     return _cache[date];
+  }
+
+  /// Check if a daily file exists on disk for the given date and load it
+  Future<DailyFile?> loadByDate(String date) async {
+    // First check cache
+    final cached = _cache[date];
+    if (cached != null) {
+      return cached;
+    }
+
+    // Check if file exists on disk
+    final dir = _storageService.dailiesDirectory;
+    if (dir == null) {
+      Log.e('❌ DailyRepository: Dailies directory not initialized');
+      return null;
+    }
+
+    final filePath = path.join(dir.path, '$date.md');
+    final file = File(filePath);
+
+    if (!await file.exists()) {
+      Log.d('📅 DailyRepository: No file exists for date $date');
+      return null;
+    }
+
+    // Load the file from disk
+    Log.i('📅 DailyRepository: Loading daily file for $date from disk');
+    final dailyFile = await _loadSingleFile(file);
+    if (dailyFile != null) {
+      _cache[date] = dailyFile;
+      _lastModified[date] = file.lastModifiedSync();
+    }
+    return dailyFile;
   }
 
   /// Save daily file

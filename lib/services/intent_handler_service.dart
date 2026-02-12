@@ -247,7 +247,7 @@ class IntentHandlerService {
         final dateEvents = entry.value;
 
         // Get existing daily file or create template
-        var dailyFile = dailyFileProvider.getDailyFile(date);
+        var dailyFile = await dailyFileProvider.getDailyFile(date);
         String content = dailyFile?.content ?? themeProvider.dailyTemplate;
 
         // Add events to content

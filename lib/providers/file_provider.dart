@@ -207,12 +207,37 @@ class FileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  DailyFile? getDailyFile(String date) {
+  /// Get daily file from memory cache only (fast, may be stale)
+  DailyFile? getDailyFileFromCache(String date) {
     try {
       return _dailyFiles.firstWhere((d) => d.date == date);
     } catch (e) {
       return null;
     }
+  }
+
+  /// Get daily file, always checking disk for latest version
+  /// Use this when you need to ensure you have the most recent data
+  Future<DailyFile?> getDailyFile(String date) async {
+    // Always check disk to get the latest version
+    // File could have been edited by another application
+    final fromDisk = await _dailyRepository.loadByDate(date);
+
+    if (fromDisk != null) {
+      // Update in-memory cache
+      final index = _dailyFiles.indexWhere((d) => d.date == date);
+      if (index != -1) {
+        _dailyFiles[index] = fromDisk;
+      } else {
+        _dailyFiles.add(fromDisk);
+        _dailyFiles.sort((a, b) => b.date.compareTo(a.date));
+      }
+      Log.d('📁 FileProvider: Loaded daily file for $date from disk');
+      return fromDisk;
+    }
+
+    // File doesn't exist on disk
+    return null;
   }
 
   String getTodayDate() {
@@ -227,7 +252,7 @@ class FileProvider extends ChangeNotifier {
   }
 
   bool hasUndoneTodos(String date) {
-    final dailyFile = getDailyFile(date);
+    final dailyFile = getDailyFileFromCache(date);
     if (dailyFile == null || dailyFile.content.isEmpty) return false;
 
     final tasks = MarkdownParser.parseTasks(dailyFile.content);
@@ -235,7 +260,7 @@ class FileProvider extends ChangeNotifier {
   }
 
   bool hasTodos(String date) {
-    final dailyFile = getDailyFile(date);
+    final dailyFile = getDailyFileFromCache(date);
     if (dailyFile == null || dailyFile.content.isEmpty) return false;
 
     final tasks = MarkdownParser.parseTasks(dailyFile.content);
@@ -243,7 +268,7 @@ class FileProvider extends ChangeNotifier {
   }
 
   int getUndoneTodoCount(String date) {
-    final dailyFile = getDailyFile(date);
+    final dailyFile = getDailyFileFromCache(date);
     if (dailyFile == null || dailyFile.content.isEmpty) return 0;
 
     final tasks = MarkdownParser.parseTasks(dailyFile.content);
@@ -251,7 +276,7 @@ class FileProvider extends ChangeNotifier {
   }
 
   List<CalendarEvent> getCalendarEvents(String date) {
-    final dailyFile = getDailyFile(date);
+    final dailyFile = getDailyFileFromCache(date);
     if (dailyFile == null || dailyFile.content.isEmpty) return [];
 
     final events = MarkdownParser.parseEvents(date, dailyFile.content);
@@ -282,7 +307,7 @@ class FileProvider extends ChangeNotifier {
         Log.d('📱 FileProvider: Updating widget (date unchanged: $todayDate)');
       }
 
-      final todayDailyFile = getDailyFile(todayDate);
+      final todayDailyFile = await getDailyFile(todayDate);
 
       bool isDarkTheme = false;
       double transparency = 1.0;

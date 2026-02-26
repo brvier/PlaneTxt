@@ -1,6 +1,5 @@
 import 'dart:async';
 
-// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:planova/models/calendar_event.dart';
 import 'package:planova/models/daily_file.dart';
@@ -99,6 +98,7 @@ class DailyFileProvider extends ChangeNotifier {
         content = _addEventsToDailyContent(content, dateEvents);
 
         // Save the updated content
+        if (!context.mounted) return;
         await saveDailyFile(context, date, content);
       }
 
@@ -209,15 +209,16 @@ class DailyFileProvider extends ChangeNotifier {
       await _updateWidget();
 
       // Schedule event notifications (only if context is still valid)
-      try {
-        final eventProvider =
-            Provider.of<EventProvider>(context, listen: false);
-        await eventProvider.scheduleEventNotifications(date, content);
-      } catch (e) {
-        // Context might be disposed, log but don't fail
-        Log.w(
-            '⚠️  DailyFileProvider: Could not access EventProvider, context may be disposed',
-            error: e);
+      if (context.mounted) {
+        try {
+          final eventProvider =
+              Provider.of<EventProvider>(context, listen: false);
+          await eventProvider.scheduleEventNotifications(date, content);
+        } catch (e) {
+          Log.w(
+              '⚠️  DailyFileProvider: Could not access EventProvider',
+              error: e);
+        }
       }
 
       Log.d('📅 DailyFileProvider: Saved daily file for $date');
@@ -236,12 +237,10 @@ class DailyFileProvider extends ChangeNotifier {
 
   /// Get daily file from memory cache only (fast, may be stale)
   DailyFile? getDailyFileFromCache(String date) {
-    try {
-      return _dailyFiles.firstWhere((d) => d.date == date);
-    } catch (e) {
-      Log.d('📅 DailyFileProvider: No daily file in cache for $date');
-      return null;
+    for (final d in _dailyFiles) {
+      if (d.date == date) return d;
     }
+    return null;
   }
 
   /// Get daily file, always checking disk for latest version
@@ -286,9 +285,7 @@ class DailyFileProvider extends ChangeNotifier {
     if (dailyFile == null || dailyFile.content.isEmpty) return false;
 
     final tasks = MarkdownParser.parseTasks(dailyFile.content);
-    final hasUndone = tasks.any((task) => !task.isCompleted);
-    Log.d('📅 DailyFileProvider: Date $date has undone todos: $hasUndone');
-    return hasUndone;
+    return tasks.any((task) => !task.isCompleted);
   }
 
   bool hasTodos(String date) {
@@ -296,9 +293,7 @@ class DailyFileProvider extends ChangeNotifier {
     if (dailyFile == null || dailyFile.content.isEmpty) return false;
 
     final tasks = MarkdownParser.parseTasks(dailyFile.content);
-    final hasTodos = tasks.isNotEmpty;
-    Log.d('📅 DailyFileProvider: Date $date has todos: $hasTodos');
-    return hasTodos;
+    return tasks.isNotEmpty;
   }
 
   int getUndoneTodoCount(String date) {
@@ -306,9 +301,7 @@ class DailyFileProvider extends ChangeNotifier {
     if (dailyFile == null || dailyFile.content.isEmpty) return 0;
 
     final tasks = MarkdownParser.parseTasks(dailyFile.content);
-    final count = tasks.where((task) => !task.isCompleted).length;
-    Log.d('📅 DailyFileProvider: Date $date has $count undone todos');
-    return count;
+    return tasks.where((task) => !task.isCompleted).length;
   }
 
   List<CalendarEvent> getCalendarEvents(String date) {
@@ -317,14 +310,11 @@ class DailyFileProvider extends ChangeNotifier {
 
     final events = MarkdownParser.parseEvents(date, dailyFile.content);
     events.sort((a, b) => a.time.compareTo(b.time));
-    Log.d('📅 DailyFileProvider: Found ${events.length} events for $date');
     return events;
   }
 
   bool hasCalendarEvents(String date) {
-    final hasEvents = getCalendarEvents(date).isNotEmpty;
-    Log.d('📅 DailyFileProvider: Date $date has events: $hasEvents');
-    return hasEvents;
+    return getCalendarEvents(date).isNotEmpty;
   }
 
   Future<void> checkDateChangeAndUpdateWidget() async {
@@ -358,9 +348,10 @@ class DailyFileProvider extends ChangeNotifier {
 
       final todayDailyFile = await getDailyFile(todayDate);
 
-      if (todayDailyFile != null) {
-        Log.d('📱 DailyFileProvider: Updating widget with daily file content');
+      if (todayDailyFile != null && todayDailyFile.content.isNotEmpty) {
         await WidgetService.updateWithDailyFile(todayDailyFile);
+      } else {
+        await WidgetService.updateWidgetEmptyDay(todayDate);
       }
 
       Log.i('📱 DailyFileProvider: Widget updated successfully');

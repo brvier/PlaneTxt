@@ -8,8 +8,12 @@ class CacheManager {
   /// Get cached value if still valid
   static T? getCached<T>(String key) {
     final cached = _cache[key];
-    if (cached != null && !cached['expired']) {
-      return cached['value'] as T?;
+    if (cached != null) {
+      final timestamp = cached['timestamp'] as DateTime?;
+      if (timestamp != null &&
+          DateTime.now().difference(timestamp) <= _cacheTimeout) {
+        return cached['value'] as T?;
+      }
     }
     return null;
   }
@@ -32,8 +36,11 @@ class CacheManager {
       final timestamp = entry.value['timestamp'] as DateTime?;
       if (timestamp != null && now.difference(timestamp) > _cacheTimeout) {
         expiredKeys.add(entry.key);
-        _cache.remove(entry.key);
       }
+    }
+
+    for (final key in expiredKeys) {
+      _cache.remove(key);
     }
 
     if (expiredKeys.isNotEmpty) {

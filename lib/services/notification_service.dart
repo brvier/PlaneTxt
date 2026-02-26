@@ -176,7 +176,11 @@ class NotificationService {
 
   // Helper method to generate a unique ID for events
   static int generateEventId(String eventTitle, DateTime eventDateTime) {
-    return eventTitle.hashCode ^ eventDateTime.millisecondsSinceEpoch.hashCode;
+    // Combine title and time into a single string for better distribution
+    final combined =
+        '${eventTitle}_${eventDateTime.millisecondsSinceEpoch}';
+    // Use a simple hash with good distribution, masked to 31 bits (positive int)
+    return combined.hashCode & 0x7FFFFFFF;
   }
 
   /// Review existing notifications and remove invalid ones

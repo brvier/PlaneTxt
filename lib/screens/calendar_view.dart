@@ -183,11 +183,11 @@ class _CalendarViewState extends State<CalendarView> {
     if (_selectedDay == null) return;
 
     final dateString = _formatDate(_selectedDay!);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
     // Ensure daily file is loaded (check disk if not in memory)
     final dailyFile = await dailyFileProvider.ensureDailyFileLoaded(dateString);
 
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final currentContent = dailyFile?.content ?? themeProvider.dailyTemplate;
 
     if (!context.mounted) return;
@@ -258,18 +258,13 @@ class _CalendarViewState extends State<CalendarView> {
       DateTime focusedDay, DailyFileProvider dailyFileProvider,
       {bool isSelected = false, bool isToday = false}) {
     final dateString = _formatDate(day);
-    // Optimize: Get daily file once and reuse it for all checks (use cache for UI)
     final dailyFile = dailyFileProvider.getDailyFileFromCache(dateString);
-    final undoneTodoCount = dailyFile != null && dailyFile.content.isNotEmpty
-        ? MarkdownParser.parseTasks(dailyFile.content)
-            .where((task) => !task.isCompleted)
-            .length
-        : 0;
-    final hasTodos = dailyFile != null && dailyFile.content.isNotEmpty
-        ? MarkdownParser.parseTasks(dailyFile.content).isNotEmpty
-        : false;
     final hasDailyFile = dailyFile != null;
-    final hasCalendarEvents = dailyFile != null && dailyFile.content.isNotEmpty
+    final hasContent = hasDailyFile && dailyFile.content.isNotEmpty;
+    final tasks = hasContent ? MarkdownParser.parseTasks(dailyFile.content) : <TaskItem>[];
+    final undoneTodoCount = tasks.where((task) => !task.isCompleted).length;
+    final hasTodos = tasks.isNotEmpty;
+    final hasCalendarEvents = hasContent
         ? MarkdownParser.parseEvents(dateString, dailyFile.content).isNotEmpty
         : false;
     final isOutsideMonth = day.month != focusedDay.month;

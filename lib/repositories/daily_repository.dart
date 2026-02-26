@@ -105,7 +105,7 @@ class DailyRepository {
     return allFiles;
   }
 
-  /// Load multiple files in parallel for better performance
+  /// Load multiple files in parallel for better performance (batched)
   Future<List<DailyFile>> _loadFilesParallel(List<File> files) async {
     if (files.isEmpty) return [];
 
@@ -113,11 +113,15 @@ class DailyRepository {
     final stopwatch = Stopwatch()..start();
 
     try {
-      final futures = files.map((file) => _loadSingleFile(file));
-      final results = await Future.wait(futures);
+      final loadedFiles = <DailyFile>[];
+      const batchSize = 20;
 
-      // Filter out null results (failed loads)
-      final loadedFiles = results.whereType<DailyFile>().toList();
+      for (var i = 0; i < files.length; i += batchSize) {
+        final batch = files.skip(i).take(batchSize);
+        final futures = batch.map((file) => _loadSingleFile(file));
+        final results = await Future.wait(futures);
+        loadedFiles.addAll(results.whereType<DailyFile>());
+      }
 
       stopwatch.stop();
       Log.d(

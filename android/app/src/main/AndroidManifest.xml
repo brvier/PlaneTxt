@@ -128,15 +128,16 @@
         </receiver>
 
         <!-- Widget Update Receiver for automatic refreshes -->
-        <receiver 
+        <receiver
             android:name="fr.rvier.planova.WidgetUpdateReceiver"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="android.intent.action.DATE_CHANGED" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="fr.rvier.planova.WIDGET_UPDATE" />
+                <action android:name="fr.rvier.planova.MIDNIGHT_REFRESH" />
             </intent-filter>
         </receiver>
 

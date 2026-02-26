@@ -1,7 +1,5 @@
 import 'dart:io';
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:planova/constants/app_constants.dart';
@@ -419,6 +417,30 @@ class WidgetService {
           '📱 WidgetService: Updated widget transparency to ${(transparency * 100).round()}%');
     } catch (e) {
       Log.e('❌ WidgetService: Error updating widget transparency', error: e);
+    }
+  }
+
+  /// Update widget to show empty state for a given date (no daily file exists)
+  static Future<void> updateWidgetEmptyDay(String date) async {
+    try {
+      const widgetContent = 'No events or tasks for today';
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_dailyContentKey, widgetContent);
+      await prefs.setString(_dateKey, date);
+
+      await _saveWidgetColors(prefs);
+
+      await HomeWidget.saveWidgetData<String>(_dailyContentKey, widgetContent);
+      await HomeWidget.saveWidgetData<String>(_dateKey, date);
+      await HomeWidget.updateWidget(
+        name: _widgetName,
+        androidName: 'PlanovaWidgetProvider',
+      );
+
+      Log.i('📱 WidgetService: Updated widget with empty day for $date');
+    } catch (e) {
+      Log.e('❌ WidgetService: Error updating widget for empty day', error: e);
     }
   }
 

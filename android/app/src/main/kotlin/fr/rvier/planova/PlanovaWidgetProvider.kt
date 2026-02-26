@@ -29,20 +29,23 @@ class PlanovaWidgetProvider : HomeWidgetProvider() {
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId, refreshedData)
         }
-        // Cancel legacy alarm schedule; rely on WorkManager
+        // Cancel legacy alarm schedule; rely on WorkManager + midnight alarm
         WidgetUpdateReceiver.cancelPeriodicUpdates(context)
         WidgetRefreshWorker.schedule(context)
+        WidgetUpdateReceiver.scheduleMidnightAlarm(context)
     }
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         WidgetUpdateReceiver.cancelPeriodicUpdates(context)
         WidgetRefreshWorker.schedule(context)
+        WidgetUpdateReceiver.scheduleMidnightAlarm(context)
     }
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
         WidgetUpdateReceiver.cancelPeriodicUpdates(context)
+        WidgetUpdateReceiver.cancelMidnightAlarm(context)
         WidgetRefreshWorker.cancel(context)
     }
 

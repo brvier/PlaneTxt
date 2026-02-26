@@ -13,15 +13,16 @@ import java.util.Date
 
 class WidgetUpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        Log.d("WidgetUpdateReceiver", "onReceive: action=${intent.action}")
-        
+        Log.d(TAG, "onReceive: action=${intent.action}")
+
         when (intent.action) {
             Intent.ACTION_TIME_TICK -> {
                 // Ignore TIME_TICK (every minute) - we use our own alarm
                 return
             }
             Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_DATE_CHANGED,
-            Intent.ACTION_BOOT_COMPLETED, "fr.rvier.planova.WIDGET_UPDATE",
+            Intent.ACTION_BOOT_COMPLETED, ACTION_WIDGET_UPDATE,
+            ACTION_MIDNIGHT_REFRESH,
             Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 // Reload widget on these events
                 checkAndUpdateWidget(context)
@@ -29,10 +30,12 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
             AppWidgetManager.ACTION_APPWIDGET_ENABLED -> {
                 // WorkManager is scheduled by the widget provider
                 WidgetRefreshWorker.schedule(context)
+                scheduleMidnightAlarm(context)
             }
             AppWidgetManager.ACTION_APPWIDGET_DISABLED -> {
                 // Stop schedule when last widget is removed
                 cancelPeriodicUpdates(context)
+                cancelMidnightAlarm(context)
                 WidgetRefreshWorker.cancel(context)
                 FileHelper.clearWidgetContent(context)
             }
@@ -40,41 +43,121 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
     }
 
     companion object {
-         private const val SHARED_PREFERENCES_NAME = "group.fr.rvier.planova"
-         private const val UPDATE_INTERVAL_MILLIS = 30L * 60L * 1000L // 30 minutes
-         private const val REQUEST_CODE = 0
- 
-         /**
-          * Check and update widget with data from files
-          */
-         fun checkAndUpdateWidget(context: Context) {
+        private const val TAG = "WidgetUpdateReceiver"
+        private const val UPDATE_INTERVAL_MILLIS = 30L * 60L * 1000L // 30 minutes
+        private const val REQUEST_CODE = 0
+        private const val MIDNIGHT_REQUEST_CODE = 42
+        private const val ACTION_WIDGET_UPDATE = "fr.rvier.planova.WIDGET_UPDATE"
+        private const val ACTION_MIDNIGHT_REFRESH = "fr.rvier.planova.MIDNIGHT_REFRESH"
 
+        /**
+         * Check and update widget with data from files
+         */
+        fun checkAndUpdateWidget(context: Context) {
             try {
-                Log.d("WidgetUpdateReceiver", "Checking and updating widget")
-                
+                Log.d(TAG, "Checking and updating widget")
+
                 // Load data from files and update widget
                 WidgetDataManager.loadAndUpdateWidget(context)
 
                 // Ensure WorkManager periodic refresh stays scheduled
                 WidgetRefreshWorker.schedule(context)
-                
-                Log.d("WidgetUpdateReceiver", "Widget update completed, next scheduled")
+
+                // Re-schedule midnight alarm for the next day
+                scheduleMidnightAlarm(context)
+
+                Log.d(TAG, "Widget update completed, next scheduled")
             } catch (e: Exception) {
-                Log.e("WidgetUpdateReceiver", "Error updating widget", e)
-                
+                Log.e(TAG, "Error updating widget", e)
+
                 // Still schedule next update even on error
                 WidgetRefreshWorker.schedule(context)
+                scheduleMidnightAlarm(context)
             }
         }
 
         /**
-         * Schedule periodic widget updates every 30 minutes
+         * Schedule an alarm at midnight (00:00) to refresh the widget for the new day.
+         * This ensures immediate refresh at day change, complementing WorkManager.
+         */
+        fun scheduleMidnightAlarm(context: Context) {
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val intent = Intent(context, WidgetUpdateReceiver::class.java).apply {
+                    action = ACTION_MIDNIGHT_REFRESH
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    MIDNIGHT_REQUEST_CODE,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // Calculate next midnight
+                val midnight = Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 5) // 5 seconds past midnight to avoid edge cases
+                    set(Calendar.MILLISECOND, 0)
+                }
+
+                val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    alarmManager.canScheduleExactAlarms()
+                } else {
+                    true
+                }
+
+                if (canScheduleExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        midnight.timeInMillis,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        midnight.timeInMillis,
+                        pendingIntent
+                    )
+                }
+
+                Log.d(TAG, "Midnight alarm scheduled at ${Date(midnight.timeInMillis)}")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to schedule midnight alarm", e)
+            }
+        }
+
+        /**
+         * Cancel the midnight alarm
+         */
+        fun cancelMidnightAlarm(context: Context) {
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val intent = Intent(context, WidgetUpdateReceiver::class.java).apply {
+                    action = ACTION_MIDNIGHT_REFRESH
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    MIDNIGHT_REQUEST_CODE,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.cancel(pendingIntent)
+                Log.d(TAG, "Cancelled midnight alarm")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to cancel midnight alarm", e)
+            }
+        }
+
+        /**
+         * Schedule periodic widget updates every 30 minutes (legacy alarm)
          */
         fun schedulePeriodicUpdates(context: Context) {
             try {
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
                 val updateIntent = Intent(context, WidgetUpdateReceiver::class.java).apply {
-                    action = "fr.rvier.planova.WIDGET_UPDATE"
+                    action = ACTION_WIDGET_UPDATE
                 }
 
                 val pendingIntent = PendingIntent.getBroadcast(
@@ -112,7 +195,7 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
                             pendingIntent
                         )
                         Log.w(
-                            "WidgetUpdateReceiver",
+                            TAG,
                             "Exact alarms not permitted; using inexact repeating"
                         )
                     }
@@ -131,9 +214,9 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
                     )
                 }
 
-                Log.d("WidgetUpdateReceiver", "Next widget update scheduled at ${Date(triggerAt)}")
+                Log.d(TAG, "Next widget update scheduled at ${Date(triggerAt)}")
             } catch (e: Exception) {
-                Log.e("WidgetUpdateReceiver", "Failed to schedule widget update", e)
+                Log.e(TAG, "Failed to schedule widget update", e)
             }
         }
 
@@ -141,7 +224,7 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
             try {
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
                 val updateIntent = Intent(context, WidgetUpdateReceiver::class.java).apply {
-                    action = "fr.rvier.planova.WIDGET_UPDATE"
+                    action = ACTION_WIDGET_UPDATE
                 }
                 val pendingIntent = PendingIntent.getBroadcast(
                     context,
@@ -150,9 +233,9 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
                 alarmManager.cancel(pendingIntent)
-                Log.d("WidgetUpdateReceiver", "Cancelled widget update alarm")
+                Log.d(TAG, "Cancelled widget update alarm")
             } catch (e: Exception) {
-                Log.e("WidgetUpdateReceiver", "Failed to cancel widget update alarm", e)
+                Log.e(TAG, "Failed to cancel widget update alarm", e)
             }
         }
     }

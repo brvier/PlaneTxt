@@ -14,6 +14,7 @@ class FileMonitorService {
   Directory? _dailiesDirectory;
   Timer? _pollingTimer;
   final Map<String, DateTime> _lastModified = {};
+  final NotificationService _notificationService = NotificationService();
   int _reviewCounter = 0;
   static const Duration _pollingInterval = Duration(seconds: 5);
 
@@ -24,6 +25,8 @@ class FileMonitorService {
       Log.e('📁 FileMonitorService: Dailies directory does not exist');
       return;
     }
+
+    await _notificationService.initialize();
 
     Log.i(
         '📁 FileMonitorService: Starting file monitoring for ${dailiesDirectory.path}');
@@ -36,6 +39,7 @@ class FileMonitorService {
   }
 
   void _startPolling() {
+    _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(_pollingInterval, (timer) {
       _checkForFileChanges();
     });
@@ -77,9 +81,7 @@ class FileMonitorService {
       for (final date in datesToRemove) {
         _lastModified.remove(date);
         // Cancel notifications for deleted files
-        final notificationService = NotificationService();
-        await notificationService.initialize();
-        await notificationService.cancelNotificationsForDate(date);
+        await _notificationService.cancelNotificationsForDate(date);
         Log.i(
             '🗑️  FileMonitorService: Cancelled notifications for deleted date file: $date');
       }
@@ -88,9 +90,7 @@ class FileMonitorService {
       _reviewCounter++;
       if (_reviewCounter >= 10) {
         _reviewCounter = 0;
-        final notificationService = NotificationService();
-        await notificationService.initialize();
-        await notificationService.reviewNotifications(_dailiesDirectory!);
+        await _notificationService.reviewNotifications(_dailiesDirectory!);
       }
     } catch (e) {
       Log.e('❌ FileMonitorService: Error checking for file changes', error: e);
@@ -122,9 +122,7 @@ class FileMonitorService {
           '📁 FileMonitorService: Scheduling notifications for existing events...');
 
       // Review existing notifications first to remove invalid ones
-      final notificationService = NotificationService();
-      await notificationService.initialize();
-      await notificationService.reviewNotifications(_dailiesDirectory!);
+      await _notificationService.reviewNotifications(_dailiesDirectory!);
 
       final files = _dailiesDirectory!
           .listSync()
@@ -156,20 +154,17 @@ class FileMonitorService {
   Future<void> _scheduleNotificationsForDate(
       String date, String content) async {
     try {
-      final notificationService = NotificationService();
-      await notificationService.initialize();
-
       // Parse events from the content
       final events = MarkdownParser.parseEvents(date, content);
 
       // Cancel all existing notifications for this date first
-      await notificationService.cancelNotificationsForDate(date);
+      await _notificationService.cancelNotificationsForDate(date);
 
       // Schedule new notifications
       for (final event in events) {
         final eventId =
             NotificationService.generateEventId(event.displayTitle, event.time);
-        await notificationService.scheduleEventNotification(
+        await _notificationService.scheduleEventNotification(
           id: eventId,
           title: event.displayTitle,
           description: event.description,

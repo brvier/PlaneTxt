@@ -31,18 +31,19 @@ class AppConstants {
   static const String notesDirName = 'notes';
 
   // Default template
-  static const String defaultDailyTemplate = '''## Events
+  static const String defaultDailyTemplate = '''# 📅 Events
 
- ## Tasks
+# ✅ Todos
 
- ## Journal
+# 📝 Logs
 
- ## Notes
+# 🗒️ Notes
 ''';
 
   // Default regex patterns
-  static const String defaultTodoHeaderRegex = r'^##\s+Tasks?';
-  static const String defaultEventHeaderRegex = r'^##\s+Events?';
+  static const String defaultTodoHeaderRegex = r'^#{1,2}\s+.*(Todos?|Tasks?)';
+  static const String defaultEventHeaderRegex = r'^#{1,2}\s+.*Events?';
+  static const String defaultLogHeaderRegex = r'^#{1,2}\s+.*(Journal|Logs?)';
 
   // SharedPreferences keys
   static const String themeModeKey = 'theme_mode';

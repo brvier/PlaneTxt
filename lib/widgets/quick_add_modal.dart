@@ -4,11 +4,12 @@ import 'package:intl/intl.dart';
 enum QuickAddType {
   event,
   todo,
+  log,
 }
 
 class QuickAddModal extends StatefulWidget {
   final DateTime selectedDate;
-  final Function(String content) onAdd;
+  final Function(String content, QuickAddType type) onAdd;
 
   const QuickAddModal({
     super.key,
@@ -95,49 +96,32 @@ class _QuickAddModalState extends State<QuickAddModal> {
             const SizedBox(height: 12),
 
             // Type selection
-            RadioGroup<QuickAddType>(
-              groupValue: _selectedType,
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() {
-                  _selectedType = value;
-                });
-              },
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ListTile(
-                      title: const Text('Event'),
-                      subtitle: const Text('With time'),
-                      leading: const Radio<QuickAddType>(
-                        value: QuickAddType.event,
-                      ),
-                      onTap: () {
-                        setState(() {
-                          _selectedType = QuickAddType.event;
-                        });
-                      },
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                    ),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<QuickAddType>(
+                segments: const [
+                  ButtonSegment<QuickAddType>(
+                    value: QuickAddType.event,
+                    label: Text('Event'),
+                    icon: Icon(Icons.event),
                   ),
-                  Expanded(
-                    child: ListTile(
-                      title: const Text('Todo'),
-                      subtitle: const Text('Task'),
-                      leading: const Radio<QuickAddType>(
-                        value: QuickAddType.todo,
-                      ),
-                      onTap: () {
-                        setState(() {
-                          _selectedType = QuickAddType.todo;
-                        });
-                      },
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                    ),
+                  ButtonSegment<QuickAddType>(
+                    value: QuickAddType.todo,
+                    label: Text('Todo'),
+                    icon: Icon(Icons.check_box_outlined),
+                  ),
+                  ButtonSegment<QuickAddType>(
+                    value: QuickAddType.log,
+                    label: Text('Log'),
+                    icon: Icon(Icons.note),
                   ),
                 ],
+                selected: {_selectedType},
+                onSelectionChanged: (Set<QuickAddType> selection) {
+                  setState(() {
+                    _selectedType = selection.first;
+                  });
+                },
               ),
             ),
             const SizedBox(height: 16),
@@ -172,9 +156,11 @@ class _QuickAddModalState extends State<QuickAddModal> {
               child: ElevatedButton.icon(
                 onPressed: _addItem,
                 icon: const Icon(Icons.add),
-                label: Text(_selectedType == QuickAddType.event
-                    ? 'Add Event'
-                    : 'Add Todo'),
+                label: Text(switch (_selectedType) {
+                  QuickAddType.event => 'Add Event',
+                  QuickAddType.todo => 'Add Todo',
+                  QuickAddType.log => 'Add Log',
+                }),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -224,18 +210,25 @@ class _QuickAddModalState extends State<QuickAddModal> {
     if (_selectedType == QuickAddType.event) {
       final timeStr = _formatTime24Hour(_selectedTime);
       content = '- @$timeStr $title';
+    } else if (_selectedType == QuickAddType.log) {
+      final now = TimeOfDay.now();
+      final timeStr = _formatTime24Hour(now);
+      content = '- $timeStr $title';
     } else {
       content = '- [ ] $title';
     }
 
-    widget.onAdd(content);
+    widget.onAdd(content, _selectedType);
     Navigator.of(context).pop();
 
+    final label = switch (_selectedType) {
+      QuickAddType.event => 'Event added',
+      QuickAddType.todo => 'Todo added',
+      QuickAddType.log => 'Log added',
+    };
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            _selectedType == QuickAddType.event ? 'Event added' : 'Todo added'),
-      ),
+      SnackBar(content: Text(label)),
     );
   }
 }

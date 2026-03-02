@@ -196,26 +196,27 @@ class _CalendarViewState extends State<CalendarView> {
       context: context,
       builder: (context) => QuickAddModal(
         selectedDate: _selectedDay!,
-        onAdd: (content) {
-          // Determine if it's a todo or event based on content format
-          // Events: "- @HH:MM title"
-          // Todos: "- [ ] title"
-          final isEvent = content.startsWith('- @');
-
-          // Insert content after the last item in the section
+        onAdd: (content, type) {
           String newContent;
-          if (isEvent) {
-            newContent = DailyContentHelper.insertAfterLastEvent(
-              currentContent,
-              content,
-              themeProvider.eventHeaderRegex,
-            );
-          } else {
-            newContent = DailyContentHelper.insertAfterLastTodo(
-              currentContent,
-              content,
-              themeProvider.todoHeaderRegex,
-            );
+          switch (type) {
+            case QuickAddType.event:
+              newContent = DailyContentHelper.insertAfterLastEvent(
+                currentContent,
+                content,
+                themeProvider.eventHeaderRegex,
+              );
+            case QuickAddType.todo:
+              newContent = DailyContentHelper.insertAfterLastTodo(
+                currentContent,
+                content,
+                themeProvider.todoHeaderRegex,
+              );
+            case QuickAddType.log:
+              newContent = DailyContentHelper.insertAtEndOfSection(
+                currentContent,
+                content,
+                themeProvider.logHeaderRegex,
+              );
           }
 
           dailyFileProvider.saveDailyFile(context, dateString, newContent);

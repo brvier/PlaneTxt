@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:planova/models/calendar_event.dart';
 import 'package:planova/models/daily_file.dart';
-import 'package:planova/providers/event_provider.dart';
 import 'package:planova/repositories/daily_repository.dart';
+import 'package:planova/services/file_monitor_service.dart';
+import 'package:planova/services/notification_service.dart';
 import 'package:planova/services/storage_service.dart';
 import 'package:planova/services/widget_service.dart';
 import 'package:planova/utils/logger.dart';
 import 'package:planova/utils/markdown_parser.dart';
-import 'package:provider/provider.dart';
 
 class DailyFileProvider extends ChangeNotifier {
   final StorageService _storageService = StorageService();
@@ -208,24 +208,46 @@ class DailyFileProvider extends ChangeNotifier {
       // Update widget with today's content
       await _updateWidget();
 
-      // Schedule event notifications (only if context is still valid)
-      if (context.mounted) {
-        try {
-          final eventProvider =
-              Provider.of<EventProvider>(context, listen: false);
-          await eventProvider.scheduleEventNotifications(date, content);
-        } catch (e) {
-          Log.w(
-              '⚠️  DailyFileProvider: Could not access EventProvider',
-              error: e);
-        }
-      }
+      // Tell FileMonitorService to skip this date (avoid cancel+reschedule race)
+      FileMonitorService().markRecentlyScheduled(date);
+
+      // Schedule event notifications directly (no context dependency)
+      await _scheduleEventNotifications(date, content);
 
       Log.d('📅 DailyFileProvider: Saved daily file for $date');
       notifyListeners();
     } catch (e) {
       Log.e('❌ DailyFileProvider: Error saving daily file', error: e);
       rethrow;
+    }
+  }
+
+  Future<void> _scheduleEventNotifications(String date, String content) async {
+    try {
+      final notificationService = NotificationService();
+      await notificationService.initialize();
+
+      final events = MarkdownParser.parseEvents(date, content);
+
+      await notificationService.cancelNotificationsForDate(date);
+
+      for (final event in events) {
+        final eventId =
+            NotificationService.generateEventId(event.displayTitle, event.time);
+        await notificationService.scheduleEventNotification(
+          id: eventId,
+          title: event.displayTitle,
+          description: event.description,
+          eventDateTime: event.time,
+          date: date,
+        );
+      }
+
+      Log.i(
+          '📅 DailyFileProvider: Scheduled ${events.length} event notifications for $date');
+    } catch (e) {
+      Log.e('❌ DailyFileProvider: Error scheduling event notifications',
+          error: e);
     }
   }
 

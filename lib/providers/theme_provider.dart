@@ -16,8 +16,9 @@ class ThemeProvider extends ChangeNotifier {
   bool _widgetDarkTheme = false;
   double _widgetTransparency =
       1.0; // 1.0 = fully opaque, 0.0 = fully transparent
-  String _todoHeaderRegex = r'^##\s+Tasks?';
-  String _eventHeaderRegex = r'^##\s+Events?';
+  String _todoHeaderRegex = r'^#{1,2}\s+.*(Todos?|Tasks?)';
+  String _eventHeaderRegex = r'^#{1,2}\s+.*Events?';
+  String _logHeaderRegex = r'^#{1,2}\s+.*(Journal|Logs?)';
   static const String _themeKey = 'theme_mode';
   static const String _appThemeKey = 'app_theme';
   static const String _storagePathKey = 'storage_path';
@@ -30,6 +31,7 @@ class ThemeProvider extends ChangeNotifier {
       'flutter.widget_transparency';
   static const String _todoHeaderRegexKey = 'todo_header_regex';
   static const String _eventHeaderRegexKey = 'event_header_regex';
+  static const String _logHeaderRegexKey = 'log_header_regex';
 
   ThemeMode get themeMode => _themeMode;
   AppTheme get appTheme => _appTheme;
@@ -39,6 +41,7 @@ class ThemeProvider extends ChangeNotifier {
   double get widgetTransparency => _widgetTransparency;
   String get todoHeaderRegex => _todoHeaderRegex;
   String get eventHeaderRegex => _eventHeaderRegex;
+  String get logHeaderRegex => _logHeaderRegex;
 
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
@@ -58,6 +61,7 @@ class ThemeProvider extends ChangeNotifier {
       _loadWidgetTransparency(),
       _loadTodoHeaderRegex(),
       _loadEventHeaderRegex(),
+      _loadLogHeaderRegex(),
     ]);
 
     _isInitialized = true;
@@ -141,23 +145,29 @@ class ThemeProvider extends ChangeNotifier {
 
   Future<void> _loadTodoHeaderRegex() async {
     final prefs = await SharedPreferences.getInstance();
-    _todoHeaderRegex = prefs.getString(_todoHeaderRegexKey) ?? r'^##\s+Tasks?';
+    _todoHeaderRegex = prefs.getString(_todoHeaderRegexKey) ?? r'^#{1,2}\s+.*(Todos?|Tasks?)';
   }
 
   Future<void> _loadEventHeaderRegex() async {
     final prefs = await SharedPreferences.getInstance();
     _eventHeaderRegex =
-        prefs.getString(_eventHeaderRegexKey) ?? r'^##\s+Events?';
+        prefs.getString(_eventHeaderRegexKey) ?? r'^#{1,2}\s+.*Events?';
+  }
+
+  Future<void> _loadLogHeaderRegex() async {
+    final prefs = await SharedPreferences.getInstance();
+    _logHeaderRegex =
+        prefs.getString(_logHeaderRegexKey) ?? r'^#{1,2}\s+.*(Journal|Logs?)';
   }
 
   String _getDefaultTemplate() {
-    return '''## Events
+    return '''# 📅 Events
 
-## Tasks
+# ✅ Todos
 
-## Journal
+# 📝 Logs
 
-## Notes
+# 🗒️ Notes
 ''';
   }
 
@@ -242,6 +252,13 @@ class ThemeProvider extends ChangeNotifier {
     _eventHeaderRegex = regex;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_eventHeaderRegexKey, regex);
+    notifyListeners();
+  }
+
+  Future<void> setLogHeaderRegex(String regex) async {
+    _logHeaderRegex = regex;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_logHeaderRegexKey, regex);
     notifyListeners();
   }
 

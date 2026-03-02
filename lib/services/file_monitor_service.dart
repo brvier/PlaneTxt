@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 import 'package:planova/services/notification_service.dart';
+import 'package:planova/services/storage_service.dart';
 import 'package:planova/utils/logger.dart';
 import 'package:planova/utils/markdown_parser.dart';
 
@@ -15,8 +16,12 @@ class FileMonitorService {
   Timer? _pollingTimer;
   final Map<String, DateTime> _lastModified = {};
   final NotificationService _notificationService = NotificationService();
-  int _reviewCounter = 0;
   static const Duration _pollingInterval = Duration(seconds: 5);
+
+  // Track dates recently scheduled by DailyFileProvider to avoid
+  // the FileMonitorService cancelling those notifications immediately.
+  final Map<String, DateTime> _recentlyScheduledDates = {};
+  static const Duration _debounceWindow = Duration(seconds: 10);
 
   Future<void> initialize(Directory dailiesDirectory) async {
     _dailiesDirectory = dailiesDirectory;
@@ -49,7 +54,8 @@ class FileMonitorService {
     if (_dailiesDirectory == null) return;
 
     try {
-      final files = _dailiesDirectory!
+      final dir = StorageService().dailiesDirectory ?? _dailiesDirectory!;
+      final files = dir
           .listSync()
           .where((entity) => entity is File && entity.path.endsWith('.md'))
           .cast<File>();
@@ -85,20 +91,29 @@ class FileMonitorService {
         Log.i(
             '🗑️  FileMonitorService: Cancelled notifications for deleted date file: $date');
       }
-
-      // Periodically review all notifications (every 10 file checks, roughly every 50 seconds)
-      _reviewCounter++;
-      if (_reviewCounter >= 10) {
-        _reviewCounter = 0;
-        await _notificationService.reviewNotifications(_dailiesDirectory!);
-      }
     } catch (e) {
       Log.e('❌ FileMonitorService: Error checking for file changes', error: e);
     }
   }
 
+  /// Mark a date as recently scheduled by DailyFileProvider so that
+  /// the FileMonitorService won't immediately cancel and re-schedule.
+  void markRecentlyScheduled(String date) {
+    _recentlyScheduledDates[date] = DateTime.now();
+  }
+
   Future<void> _handleFileChange(String date, String filePath) async {
     try {
+      // Skip if DailyFileProvider just scheduled notifications for this date
+      final recentTime = _recentlyScheduledDates[date];
+      if (recentTime != null &&
+          DateTime.now().difference(recentTime) < _debounceWindow) {
+        Log.d(
+            '📁 FileMonitorService: Skipping $date - recently scheduled by DailyFileProvider');
+        return;
+      }
+      _recentlyScheduledDates.remove(date);
+
       Log.i('📁 FileMonitorService: File changed - $date');
 
       final file = File(filePath);
@@ -118,13 +133,14 @@ class FileMonitorService {
     if (_dailiesDirectory == null) return;
 
     try {
+      final dir = StorageService().dailiesDirectory ?? _dailiesDirectory!;
       Log.i(
           '📁 FileMonitorService: Scheduling notifications for existing events...');
 
       // Review existing notifications first to remove invalid ones
-      await _notificationService.reviewNotifications(_dailiesDirectory!);
+      await _notificationService.reviewNotifications(dir);
 
-      final files = _dailiesDirectory!
+      final files = dir
           .listSync()
           .where((entity) => entity is File && entity.path.endsWith('.md'))
           .cast<File>();

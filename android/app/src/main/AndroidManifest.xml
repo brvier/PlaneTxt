@@ -16,9 +16,15 @@
 
     <!-- Notification permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    
+
+    <!-- Wake lock required by flutter_local_notifications to deliver scheduled notifications -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <!-- Exact alarm permission for precise notifications (Android 12+) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- Required for alarmClock scheduling mode on Android 14+ -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <!-- Boot completed permission for widget auto-refresh after reboot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -115,8 +121,26 @@
             android:name="flutterEmbedding"
             android:value="2" />
         
+        <!-- flutter_local_notifications: receives AlarmManager intents for scheduled notifications -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
+            android:exported="false" />
+
         <!-- Widget Provider Declaration -->
-        <receiver 
+        <receiver
             android:name="fr.rvier.planova.PlanovaWidgetProvider"
             android:exported="true">
             <intent-filter>

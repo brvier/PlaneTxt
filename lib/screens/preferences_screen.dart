@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:planova/providers/directory_provider.dart';
 import 'package:planova/providers/theme_provider.dart';
 import 'package:planova/utils/permission_helper.dart';
+import 'package:planova/services/notification_service.dart';
 import 'package:planova/widgets/theme_selector.dart';
 import 'package:planova/screens/widget_debug_screen.dart';
 import 'package:planova/services/widget_service.dart';
@@ -171,6 +172,20 @@ class PreferencesScreen extends StatelessWidget {
                   );
                 },
               ),
+              Consumer<ThemeProvider>(
+                builder: (context, themeProvider, child) {
+                  return ListTile(
+                    leading: const Icon(Icons.edit_note),
+                    title: const Text('Log Header Pattern'),
+                    subtitle: Text(themeProvider.logHeaderRegex.isEmpty
+                        ? 'No pattern set'
+                        : 'Pattern: ${themeProvider.logHeaderRegex}'),
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () =>
+                        _showLogHeaderRegexDialog(context, themeProvider),
+                  );
+                },
+              ),
             ],
           ),
 
@@ -241,6 +256,32 @@ class PreferencesScreen extends StatelessWidget {
                     ),
                   );
                 },
+              ),
+              ListTile(
+                leading: const Icon(Icons.notifications_active),
+                title: const Text('Test Immediate Notification'),
+                subtitle: const Text('Fire a notification right now'),
+                onTap: () => _testImmediateNotification(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.schedule_send),
+                title: const Text('Test Scheduled Notification'),
+                subtitle: const Text(
+                    'Tests 3 AlarmManager modes at 15s, 30s, 45s'),
+                onTap: () => _testScheduledNotification(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.timer),
+                title: const Text('Test Timer Notification'),
+                subtitle: const Text(
+                    'Bypasses AlarmManager, uses Dart Timer (10s)'),
+                onTap: () => _testTimerNotification(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('Notification Diagnostics'),
+                subtitle: const Text('Check notification system status'),
+                onTap: () => _showNotificationDiagnostics(context),
               ),
             ],
           ),
@@ -696,7 +737,7 @@ class PreferencesScreen extends StatelessWidget {
                 controller: controller,
                 maxLines: 10,
                 decoration: const InputDecoration(
-                  hintText: '## Events\n\n## Tasks\n\n## Journal\n\n## Notes\n',
+                  hintText: '# 📅 Events\n# ✅ Todos\n# 📝 Logs\n# 🗒️ Notes\n',
                   border: OutlineInputBorder(),
                 ),
                 style: const TextStyle(
@@ -734,8 +775,8 @@ class PreferencesScreen extends StatelessWidget {
         ? 'Set a regex pattern to match the header where todos should be inserted. When adding a todo, it will be placed after the first matching header.'
         : 'Set a regex pattern to match the header where events should be inserted. When adding an event, it will be placed after the first matching header.';
     final example = isTodo
-        ? r'^##\s+Tasks?' // Matches "## Task" or "## Tasks"
-        : r'^##\s+Events?'; // Matches "## Event" or "## Events"
+        ? r'^#{1,2}\s+.*(Todos?|Tasks?)' // Matches "# Todos", "## Tasks", "# ✅ Todos", etc.
+        : r'^#{1,2}\s+.*Events?'; // Matches "# Events", "## Events", "# 📅 Events", etc.
 
     showDialog(
       context: context,
@@ -758,18 +799,15 @@ class PreferencesScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '? $example (matches "## Task" or "## Tasks")',
+                '? $example',
                 style: const TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 12,
                 ),
               ),
               const Text(
-                '? ^##\\s+.*[Tt]ask (matches any header containing "task")',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                ),
+                '  Matches "# Todos", "## Tasks", "# ✅ Todos", etc.',
+                style: TextStyle(fontSize: 12),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -804,6 +842,191 @@ class PreferencesScreen extends StatelessWidget {
                 } else {
                   themeProvider.setEventHeaderRegex(regex);
                 }
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Pattern saved successfully')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Invalid regex pattern: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _testImmediateNotification(BuildContext context) async {
+    try {
+      await NotificationService().showTestNotification();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('Immediate notification fired! Check your status bar.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _testScheduledNotification(BuildContext context) async {
+    try {
+      await NotificationService().showScheduledTestNotification();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  '3 tests scheduled: alarmClock@15s, exact@30s, inexact@45s')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _testTimerNotification(BuildContext context) async {
+    try {
+      await NotificationService().showTimerTestNotification();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Timer set for 10s. Keep app open! (bypasses AlarmManager)')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showNotificationDiagnostics(BuildContext context) async {
+    try {
+      final diagnostics = await NotificationService().getDiagnostics();
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Notification Diagnostics'),
+            content: SingleChildScrollView(
+              child: Text(
+                diagnostics,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showLogHeaderRegexDialog(
+      BuildContext context, ThemeProvider themeProvider) {
+    final controller =
+        TextEditingController(text: themeProvider.logHeaderRegex);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log Header Pattern'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Set a regex pattern to match the header where log entries should be inserted. When adding a log, it will be placed at the end of the matching section.',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Example patterns:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                r'? ^#{1,2}\s+.*(Journal|Logs?)',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+              const Text(
+                '  Matches "# Logs", "## Journal", "# 📝 Logs", etc.',
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'Regex Pattern',
+                  hintText: r'^#{1,2}\s+.*(Journal|Logs?)',
+                  border: OutlineInputBorder(),
+                  helperText: 'Use regex syntax. ^ matches start of line.',
+                ),
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final regex = controller.text.trim();
+              try {
+                RegExp(regex);
+                themeProvider.setLogHeaderRegex(regex);
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Pattern saved successfully')),

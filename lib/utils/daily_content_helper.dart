@@ -140,11 +140,11 @@ class DailyContentHelper {
           if (afterEventsSection.isNotEmpty) ...afterEventsSection,
         ].join('\n');
       } else {
-        // No events section - create one with sorted events
+        // No events section found - append to end
         if (content.isNotEmpty && !content.endsWith('\n')) {
-          return '$content\n\n## Events\n\n${sortedEvents.join('\n')}';
+          return '$content\n\n${sortedEvents.join('\n')}';
         } else {
-          return '$content\n## Events\n\n${sortedEvents.join('\n')}';
+          return '$content\n${sortedEvents.join('\n')}';
         }
       }
     } catch (e) {
@@ -291,11 +291,11 @@ class DailyContentHelper {
           }
         }
       } else {
-        // No events section - create one
+        // No events section found - append to end
         if (content.isNotEmpty && !content.endsWith('\n')) {
-          return '$content\n\n## Events\n\n$eventContent';
+          return '$content\n\n$eventContent';
         } else {
-          return '$content## Events\n\n$eventContent';
+          return '$content\n$eventContent';
         }
       }
     } catch (e) {
@@ -404,11 +404,11 @@ class DailyContentHelper {
           }
         }
       } else {
-        // No tasks section - create one
+        // No tasks section found - append to end
         if (content.isNotEmpty && !content.endsWith('\n')) {
-          return '$content\n\n## Tasks\n\n$todoContent';
+          return '$content\n\n$todoContent';
         } else {
-          return '$content## Tasks\n\n$todoContent';
+          return '$content\n$todoContent';
         }
       }
     } catch (e) {
@@ -420,6 +420,80 @@ class DailyContentHelper {
       } else {
         return '$content\n$todoContent';
       }
+    }
+  }
+
+  /// Inserts content at the end of a section (before the next ## header).
+  /// If no matching section exists, creates one.
+  ///
+  /// [content] - The existing daily file content
+  /// [newContent] - The new content to insert
+  /// [sectionHeaderRegex] - Regex pattern to match the section header
+  ///
+  /// Returns the updated content with newContent appended at the end of the section.
+  static String insertAtEndOfSection(
+    String content,
+    String newContent,
+    String sectionHeaderRegex,
+  ) {
+    if (sectionHeaderRegex.isEmpty) {
+      return content.isEmpty ? newContent : '$content\n\n$newContent';
+    }
+
+    try {
+      final regex = RegExp(sectionHeaderRegex, multiLine: true);
+      final lines = content.split('\n');
+
+      // Find the section header
+      int? headerIndex;
+      for (int i = 0; i < lines.length; i++) {
+        if (regex.hasMatch(lines[i])) {
+          headerIndex = i;
+          break;
+        }
+      }
+
+      if (headerIndex == null) {
+        // No matching section found - append to end
+        if (content.isNotEmpty && !content.endsWith('\n')) {
+          return '$content\n\n$newContent';
+        } else {
+          return '$content\n$newContent';
+        }
+      }
+
+      // Find the end of the section (next ## header or end of file)
+      int sectionEnd = headerIndex + 1;
+      while (sectionEnd < lines.length) {
+        final line = lines[sectionEnd].trim();
+        if (line.startsWith('##') || line.startsWith('#')) {
+          break;
+        }
+        sectionEnd++;
+      }
+
+      // Walk backwards from sectionEnd to find the last non-empty line
+      int lastContentIndex = sectionEnd - 1;
+      while (lastContentIndex > headerIndex &&
+          lines[lastContentIndex].trim().isEmpty) {
+        lastContentIndex--;
+      }
+
+      // Insert after the last content line in the section
+      final insertIndex = lastContentIndex + 1;
+      final before = lines.sublist(0, insertIndex).join('\n');
+      final after = lines.sublist(insertIndex).join('\n');
+
+      if (after.isNotEmpty) {
+        return '$before\n$newContent\n$after';
+      } else {
+        return '$before\n$newContent';
+      }
+    } catch (e) {
+      Log.e(
+          '?? DailyContentHelper: Error inserting at end of section',
+          error: e);
+      return content.isEmpty ? newContent : '$content\n\n$newContent';
     }
   }
 

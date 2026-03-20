@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
@@ -21,6 +22,11 @@ class NoteRepository {
     if (dir == null) {
       Log.e('❌ NoteRepository: Notes directory not initialized');
       return [];
+    }
+
+    // Restore cache from disk on cold start
+    if (_cache.isEmpty && !forceReload) {
+      await _restoreCache();
     }
 
     final files = _storageService.listFiles(dir, recursive: true);
@@ -95,6 +101,10 @@ class NoteRepository {
 
     Log.i(
         '📝 NoteRepository: Loaded ${allFiles.length} note files (${cachedFiles.length} from cache, ${loadedFiles.length} newly loaded)');
+
+    // Persist updated cache to disk
+    await _persistCache();
+
     return allFiles;
   }
 
@@ -223,6 +233,12 @@ class NoteRepository {
 
     Log.i(
         '📝 NoteRepository: Incremental load completed - ${loadedFiles.length} files updated, ${allFiles.length} total');
+
+    // Persist updated cache to disk
+    if (loadedFiles.isNotEmpty) {
+      await _persistCache();
+    }
+
     return allFiles;
   }
 
@@ -231,6 +247,80 @@ class NoteRepository {
 
   /// Get cached files count
   int get cacheSize => _cache.length;
+
+  /// Persist cache and mtime index to disk for faster cold starts
+  Future<void> _persistCache() async {
+    try {
+      final dir = _storageService.orgDirectory;
+      if (dir == null) return;
+
+      final cacheFile = File(path.join(dir.path, '._note_cache.json'));
+      final data = <String, dynamic>{
+        'version': 1,
+        'files': <String, dynamic>{},
+      };
+
+      for (final note in _cache) {
+        (data['files'] as Map<String, dynamic>)[note.relativePath] = {
+          'content': note.content,
+          'path': note.path,
+          'lastModified': note.lastModified.millisecondsSinceEpoch,
+          'mtime': _lastModified[note.relativePath]?.millisecondsSinceEpoch,
+        };
+      }
+
+      await cacheFile.writeAsString(jsonEncode(data));
+      Log.d(
+          '📝 NoteRepository: Persisted ${_cache.length} files to disk cache');
+    } catch (e) {
+      Log.e('❌ NoteRepository: Error persisting cache', error: e);
+    }
+  }
+
+  /// Restore cache and mtime index from disk
+  Future<void> _restoreCache() async {
+    try {
+      final dir = _storageService.orgDirectory;
+      if (dir == null) return;
+
+      final cacheFile = File(path.join(dir.path, '._note_cache.json'));
+      if (!await cacheFile.exists()) return;
+
+      final content = await cacheFile.readAsString();
+      final data = jsonDecode(content) as Map<String, dynamic>;
+
+      if (data['version'] != 1) return;
+
+      final files = data['files'] as Map<String, dynamic>;
+      for (final entry in files.entries) {
+        final relativePath = entry.key;
+        final fileData = entry.value as Map<String, dynamic>;
+
+        _cache.add(NoteFile(
+          path: fileData['path'] as String,
+          relativePath: relativePath,
+          content: fileData['content'] as String,
+          lastModified: DateTime.fromMillisecondsSinceEpoch(
+            fileData['lastModified'] as int,
+          ),
+        ));
+
+        if (fileData['mtime'] != null) {
+          _lastModified[relativePath] = DateTime.fromMillisecondsSinceEpoch(
+            fileData['mtime'] as int,
+          );
+        }
+      }
+
+      Log.i(
+          '📝 NoteRepository: Restored ${_cache.length} files from disk cache');
+    } catch (e) {
+      Log.e('❌ NoteRepository: Error restoring cache, will do full load',
+          error: e);
+      _cache.clear();
+      _lastModified.clear();
+    }
+  }
 
   /// Clear cache manually
   void clearCache() {

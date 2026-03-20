@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
@@ -21,6 +22,11 @@ class DailyRepository {
     if (dir == null) {
       Log.e('❌ DailyRepository: Dailies directory not initialized');
       return [];
+    }
+
+    // Restore cache from disk on cold start
+    if (_cache.isEmpty && !forceReload) {
+      await _restoreCache();
     }
 
     final files = _storageService.listFiles(dir);
@@ -102,6 +108,10 @@ class DailyRepository {
 
     Log.i(
         '📅 DailyRepository: Loaded ${allFiles.length} daily files (${cachedFiles.length} from cache, ${loadedFiles.length} newly loaded)');
+
+    // Persist updated cache to disk
+    await _persistCache();
+
     return allFiles;
   }
 
@@ -238,6 +248,12 @@ class DailyRepository {
 
     Log.i(
         '📅 DailyRepository: Incremental load completed - ${loadedFiles.length} files updated, ${allFiles.length} total');
+
+    // Persist updated cache to disk
+    if (loadedFiles.isNotEmpty) {
+      await _persistCache();
+    }
+
     return allFiles;
   }
 
@@ -313,6 +329,75 @@ class DailyRepository {
 
   /// Get cached files count
   int get cacheSize => _cache.length;
+
+  /// Persist cache and mtime index to disk for faster cold starts
+  Future<void> _persistCache() async {
+    try {
+      final dir = _storageService.orgDirectory;
+      if (dir == null) return;
+
+      final cacheFile = File(path.join(dir.path, '._daily_cache.json'));
+      final data = <String, dynamic>{
+        'version': 1,
+        'files': <String, dynamic>{},
+      };
+
+      for (final entry in _cache.entries) {
+        (data['files'] as Map<String, dynamic>)[entry.key] = {
+          'content': entry.value.content,
+          'path': entry.value.path,
+          'mtime': _lastModified[entry.key]?.millisecondsSinceEpoch,
+        };
+      }
+
+      await cacheFile.writeAsString(jsonEncode(data));
+      Log.d(
+          '📅 DailyRepository: Persisted ${_cache.length} files to disk cache');
+    } catch (e) {
+      Log.e('❌ DailyRepository: Error persisting cache', error: e);
+    }
+  }
+
+  /// Restore cache and mtime index from disk
+  Future<void> _restoreCache() async {
+    try {
+      final dir = _storageService.orgDirectory;
+      if (dir == null) return;
+
+      final cacheFile = File(path.join(dir.path, '._daily_cache.json'));
+      if (!await cacheFile.exists()) return;
+
+      final content = await cacheFile.readAsString();
+      final data = jsonDecode(content) as Map<String, dynamic>;
+
+      if (data['version'] != 1) return;
+
+      final files = data['files'] as Map<String, dynamic>;
+      for (final entry in files.entries) {
+        final date = entry.key;
+        final fileData = entry.value as Map<String, dynamic>;
+
+        _cache[date] = DailyFile(
+          path: fileData['path'] as String,
+          date: date,
+          content: fileData['content'] as String,
+        );
+
+        if (fileData['mtime'] != null) {
+          _lastModified[date] = DateTime.fromMillisecondsSinceEpoch(
+            fileData['mtime'] as int,
+          );
+        }
+      }
+
+      Log.i('📅 DailyRepository: Restored ${_cache.length} files from disk cache');
+    } catch (e) {
+      Log.e('❌ DailyRepository: Error restoring cache, will do full load',
+          error: e);
+      _cache.clear();
+      _lastModified.clear();
+    }
+  }
 
   /// Clear cache manually
   void clearCache() {

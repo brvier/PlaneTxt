@@ -103,13 +103,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       // Initialize daily files (full load on first startup)
       Log.i('🚀 MainScreen: Loading daily files...');
-      await context.read<DailyFileProvider>().loadDailyFiles(forceReload: true);
+      await context.read<DailyFileProvider>().loadDailyFiles();
 
       if (!mounted) return;
 
       // Initialize notes (full load on first startup)
       Log.i('🚀 MainScreen: Loading note files...');
-      await context.read<NoteFileProvider>().loadNoteFiles(forceReload: true);
+      await context.read<NoteFileProvider>().loadNoteFiles();
 
       if (!mounted) return;
 

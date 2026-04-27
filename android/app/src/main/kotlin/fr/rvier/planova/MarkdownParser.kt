@@ -95,7 +95,7 @@ object MarkdownParser {
         if (todos.isNotEmpty()) {
             buffer.appendLine("✓ Tasks")
             for (task in todos) {
-                buffer.appendLine("  ◦ $task")
+                buffer.appendLine("  $task")
             }
         }
         

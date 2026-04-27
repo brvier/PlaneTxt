@@ -27,7 +27,7 @@ class IntentHandlerService {
 
       if (sharedText != null && sharedText.isNotEmpty) {
         Log.i('📅 IntentHandlerService: Received shared text intent');
-        // ignore: use_build_context_synchronously
+        if (!context.mounted) return null;
         return await _handleIcsContent(context, sharedText);
       }
 
@@ -48,11 +48,11 @@ class IntentHandlerService {
           if (fileContent != null && fileContent.isNotEmpty) {
             Log.i(
                 '📅 IntentHandlerService: Successfully read ${fileContent.length} characters from file');
-            // ignore: use_build_context_synchronously
+            if (!context.mounted) return null;
             return await _handleIcsContent(context, fileContent);
           } else {
             Log.w('⚠️  IntentHandlerService: File content is empty or null');
-            // ignore: use_build_context_synchronously
+            if (!context.mounted) return null;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                   content: Text('File is empty or could not be read'),
@@ -63,7 +63,7 @@ class IntentHandlerService {
         } catch (e) {
           Log.e('❌ IntentHandlerService: Error reading file from URI',
               error: e);
-          // ignore: use_build_context_synchronously
+          if (!context.mounted) return null;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content: Text('Error reading file: ${e.toString()}'),
@@ -255,15 +255,15 @@ class IntentHandlerService {
             content, dateEvents, RegExp(themeProvider.eventHeaderRegex));
 
         // Save the updated content
+        if (!context.mounted) return;
         await dailyFileProvider.saveDailyFile(context, date, content);
       }
 
       // Show success message
       Log.i(
           '📅 IntentHandlerService: Successfully added ${events.length} events to daily files');
-      // ignore: use_build_context_synchronously
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).clearSnackBars();
-      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Successfully added ${events.length} event(s)'),
@@ -276,7 +276,7 @@ class IntentHandlerService {
     } catch (e) {
       Log.e('❌ IntentHandlerService: Error adding events to daily files',
           error: e);
-      // ignore: use_build_context_synchronously
+      if (!context.mounted) rethrow;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('Error adding events: ${e.toString()}'),

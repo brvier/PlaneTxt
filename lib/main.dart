@@ -6,11 +6,15 @@ import 'package:planova/providers/note_file_provider.dart';
 import 'package:planova/providers/theme_provider.dart';
 import 'package:planova/screens/main_screen.dart';
 import 'package:planova/services/notification_service.dart';
+import 'package:planova/services/shared_prefs_service.dart';
 import 'package:planova/services/widget_service.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize shared preferences (must be first)
+  await SharedPrefsService.initialize();
 
   // Initialize widget service
   await WidgetService.initialize();

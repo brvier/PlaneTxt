@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:planova/constants/app_constants.dart';
 import 'package:planova/utils/exceptions.dart';
 import 'package:planova/utils/logger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:planova/services/shared_prefs_service.dart';
 
 /// Provider for managing regex patterns for parsing content
 class RegexProvider extends ChangeNotifier {
@@ -49,7 +49,7 @@ class RegexProvider extends ChangeNotifier {
     _logger.entry('_loadTodoHeaderRegex');
 
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       _todoHeaderRegex = prefs.getString(AppConstants.todoHeaderRegexKey) ??
           AppConstants.defaultTodoHeaderRegex;
       _logger.debug('Loaded todo header regex: $_todoHeaderRegex');
@@ -66,7 +66,7 @@ class RegexProvider extends ChangeNotifier {
     _logger.entry('_loadEventHeaderRegex');
 
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       _eventHeaderRegex = prefs.getString(AppConstants.eventHeaderRegexKey) ??
           AppConstants.defaultEventHeaderRegex;
       _logger.debug('Loaded event header regex: $_eventHeaderRegex');
@@ -92,7 +92,7 @@ class RegexProvider extends ChangeNotifier {
       }
 
       _todoHeaderRegex = regex;
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await prefs.setString(AppConstants.todoHeaderRegexKey, regex);
 
       _logger.debug('Todo header regex saved: $regex');
@@ -120,7 +120,7 @@ class RegexProvider extends ChangeNotifier {
       }
 
       _eventHeaderRegex = regex;
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await prefs.setString(AppConstants.eventHeaderRegexKey, regex);
 
       _logger.debug('Event header regex saved: $regex');

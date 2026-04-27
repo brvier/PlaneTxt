@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:planova/services/widget_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:planova/services/shared_prefs_service.dart';
 
 class WidgetDebugScreen extends StatefulWidget {
   const WidgetDebugScreen({super.key});
@@ -57,7 +57,7 @@ class _WidgetDebugScreenState extends State<WidgetDebugScreen> {
       _result += '✓ Widget service initialized\n';
 
       // Test SharedPreferences for widget data
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       final testContent =
           'Test widget content\n📅 Events\n  ◦ Test event\n✓ Tasks\n  ◦ Test task';
 

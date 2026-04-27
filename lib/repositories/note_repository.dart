@@ -1,175 +1,48 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
 import 'package:planova/models/note_file.dart';
-import 'package:planova/services/storage_service.dart';
+import 'package:planova/repositories/base_repository.dart';
 import 'package:planova/utils/logger.dart';
 
-class NoteRepository {
-  final StorageService _storageService;
-  final List<NoteFile> _cache = [];
-  final Map<String, DateTime> _lastModified = {};
+class NoteRepository extends BaseRepository<NoteFile> {
+  NoteRepository(super.storageService);
 
-  NoteRepository(this._storageService);
+  @override
+  Directory? get directory => storageService.notesDirectory;
 
-  /// Load all note files with parallel processing and incremental cache
-  Future<List<NoteFile>> loadAll({bool forceReload = false}) async {
-    Log.d(
-        '📝 NoteRepository: Loading all note files (forceReload: $forceReload)...');
+  @override
+  String get cacheFileName => '._note_cache.json';
 
-    final dir = _storageService.notesDirectory;
-    if (dir == null) {
-      Log.e('❌ NoteRepository: Notes directory not initialized');
-      return [];
-    }
+  @override
+  String get tag => '📝 NoteRepository';
 
-    // Restore cache from disk on cold start
-    if (_cache.isEmpty && !forceReload) {
-      await _restoreCache();
-    }
+  @override
+  bool get recursive => true;
 
-    final files = _storageService.listFiles(dir, recursive: true);
-
-    if (forceReload) {
-      _cache.clear();
-      _lastModified.clear();
-    }
-
-    // Determine which files need loading
-    final filesToLoad = <File>[];
-    final cachedFiles = <NoteFile>[];
-
-    for (final file in files) {
-      try {
-        final relativePath =
-            path.relative(file.path, from: dir.path).replaceAll('\\', '/');
-        final currentModified = file.lastModifiedSync();
-
-        // Find cached version by relative path
-        final cachedIndex =
-            _cache.indexWhere((n) => n.relativePath == relativePath);
-        final cached = cachedIndex != -1 ? _cache[cachedIndex] : null;
-
-        if (cached != null &&
-            _lastModified[relativePath] != null &&
-            !_lastModified[relativePath]!.isBefore(currentModified) &&
-            !forceReload) {
-          // File hasn't changed, use cached version
-          cachedFiles.add(cached.copyWith(
-            path: file.path, // Update path in case it changed
-            lastModified: currentModified,
-          ));
-        } else {
-          // File is new or modified, needs loading
-          filesToLoad.add(file);
-          _lastModified[relativePath] = currentModified;
-        }
-      } catch (e) {
-        Log.e(
-            '❌ NoteRepository: Error checking file modification time ${file.path}',
-            error: e);
-        filesToLoad.add(file);
-      }
-    }
-
-    // Remove cached files that no longer exist
-    final existingRelativePaths = files
-        .map((f) => path.relative(f.path, from: dir.path).replaceAll('\\', '/'))
-        .toSet();
-
-    _cache.removeWhere(
-        (note) => !existingRelativePaths.contains(note.relativePath));
-    _lastModified.removeWhere(
-        (relativePath, _) => !existingRelativePaths.contains(relativePath));
-
-    // Parallel load files that need updating
-    final loadedFiles = await _loadFilesParallel(filesToLoad, dir.path);
-
-    // Update cache with newly loaded files
-    for (final noteFile in loadedFiles) {
-      // Remove existing entry with same relative path if exists
-      _cache.removeWhere((n) => n.relativePath == noteFile.relativePath);
-      _cache.add(noteFile);
-    }
-
-    // Combine cached and newly loaded files
-    final allFiles = [...cachedFiles, ...loadedFiles];
-
-    // Sort by last modified descending
-    allFiles.sort((a, b) => b.lastModified.compareTo(a.lastModified));
-
-    Log.i(
-        '📝 NoteRepository: Loaded ${allFiles.length} note files (${cachedFiles.length} from cache, ${loadedFiles.length} newly loaded)');
-
-    // Persist updated cache to disk
-    await _persistCache();
-
-    return allFiles;
+  @override
+  String? matchFile(File file) {
+    final dir = directory;
+    if (dir == null) return null;
+    return path.relative(file.path, from: dir.path).replaceAll('\\', '/');
   }
 
-  /// Load multiple files in parallel for better performance
-  Future<List<NoteFile>> _loadFilesParallel(
-      List<File> files, String basePath) async {
-    if (files.isEmpty) return [];
-
-    Log.d('📝 NoteRepository: Loading ${files.length} files in parallel...');
-    final stopwatch = Stopwatch()..start();
-
+  @override
+  Future<NoteFile?> loadSingleFile(File file) async {
     try {
-      final futures = files.map((file) => _loadSingleFile(file, basePath));
-      final results = await Future.wait(futures);
+      final dir = directory;
+      if (dir == null) return null;
 
-      // Filter out null results (failed loads)
-      final loadedFiles = results.whereType<NoteFile>().toList();
-
-      stopwatch.stop();
-      Log.d(
-          '📝 NoteRepository: Parallel loading completed in ${stopwatch.elapsedMilliseconds}ms');
-
-      return loadedFiles;
-    } catch (e) {
-      Log.e('❌ NoteRepository: Error in parallel file loading', error: e);
-
-      // Fallback to sequential loading if parallel fails
-      Log.w('📝 NoteRepository: Falling back to sequential loading');
-      return await _loadFilesSequential(files, basePath);
-    }
-  }
-
-  /// Load files sequentially as fallback
-  Future<List<NoteFile>> _loadFilesSequential(
-      List<File> files, String basePath) async {
-    final loadedFiles = <NoteFile>[];
-
-    for (final file in files) {
-      try {
-        final noteFile = await _loadSingleFile(file, basePath);
-        if (noteFile != null) {
-          loadedFiles.add(noteFile);
-        }
-      } catch (e) {
-        Log.e('❌ NoteRepository: Error loading note file ${file.path}',
-            error: e);
-      }
-    }
-
-    return loadedFiles;
-  }
-
-  /// Load a single note file
-  Future<NoteFile?> _loadSingleFile(File file, String basePath) async {
-    try {
-      final content = await _storageService.readFile(file);
+      final content = await storageService.readFile(file);
       final relativePath =
-          path.relative(file.path, from: basePath).replaceAll('\\', '/');
-      final lastModified = file.lastModifiedSync();
+          path.relative(file.path, from: dir.path).replaceAll('\\', '/');
+      final lastMod = file.lastModifiedSync();
 
       return NoteFile(
         path: file.path,
         relativePath: relativePath,
         content: content,
-        lastModified: lastModified,
+        lastModified: lastMod,
       );
     } catch (e) {
       Log.e('❌ NoteRepository: Error loading note file ${file.path}', error: e);
@@ -177,175 +50,58 @@ class NoteRepository {
     }
   }
 
-  /// Incremental update - only load files modified since last load
-  Future<List<NoteFile>> loadIncremental() async {
-    Log.d('📝 NoteRepository: Loading incremental changes...');
+  @override
+  String fileKey(NoteFile item) => item.relativePath;
 
-    final dir = _storageService.notesDirectory;
-    if (dir == null) {
-      Log.e('❌ NoteRepository: Notes directory not initialized');
-      return List.from(_cache)
-        ..sort((a, b) => b.lastModified.compareTo(a.lastModified));
-    }
-
-    final files = _storageService.listFiles(dir, recursive: true);
-    final modifiedFiles = <File>[];
-
-    // Check for modified files
-    for (final file in files) {
-      try {
-        final relativePath =
-            path.relative(file.path, from: dir.path).replaceAll('\\', '/');
-        final currentModified = file.lastModifiedSync();
-
-        if (_lastModified[relativePath] == null ||
-            _lastModified[relativePath]!.isBefore(currentModified)) {
-          modifiedFiles.add(file);
-          _lastModified[relativePath] = currentModified;
-        }
-      } catch (e) {
-        Log.e('❌ NoteRepository: Error checking file ${file.path}', error: e);
-      }
-    }
-
-    // Remove deleted files from cache
-    final existingRelativePaths = files
-        .map((f) => path.relative(f.path, from: dir.path).replaceAll('\\', '/'))
-        .toSet();
-
-    _cache.removeWhere(
-        (note) => !existingRelativePaths.contains(note.relativePath));
-    _lastModified.removeWhere(
-        (relativePath, _) => !existingRelativePaths.contains(relativePath));
-
-    // Load modified files in parallel
-    final loadedFiles = await _loadFilesParallel(modifiedFiles, dir.path);
-
-    // Update cache
-    for (final noteFile in loadedFiles) {
-      // Remove existing entry with same relative path if exists
-      _cache.removeWhere((n) => n.relativePath == noteFile.relativePath);
-      _cache.add(noteFile);
-    }
-
-    final allFiles = <NoteFile>[..._cache]
-      ..sort((a, b) => b.lastModified.compareTo(a.lastModified));
-
-    Log.i(
-        '📝 NoteRepository: Incremental load completed - ${loadedFiles.length} files updated, ${allFiles.length} total');
-
-    // Persist updated cache to disk
-    if (loadedFiles.isNotEmpty) {
-      await _persistCache();
-    }
-
-    return allFiles;
+  @override
+  NoteFile copyWithPath(NoteFile item, String newPath) {
+    return item.copyWith(
+      path: newPath,
+      lastModified: File(newPath).lastModifiedSync(),
+    );
   }
 
-  /// Get cached notes
-  List<NoteFile> get cachedNotes => List.unmodifiable(_cache);
+  @override
+  int compare(NoteFile a, NoteFile b) =>
+      b.lastModified.compareTo(a.lastModified);
 
-  /// Get cached files count
-  int get cacheSize => _cache.length;
-
-  /// Persist cache and mtime index to disk for faster cold starts
-  Future<void> _persistCache() async {
-    try {
-      final dir = _storageService.orgDirectory;
-      if (dir == null) return;
-
-      final cacheFile = File(path.join(dir.path, '._note_cache.json'));
-      final data = <String, dynamic>{
-        'version': 1,
-        'files': <String, dynamic>{},
+  @override
+  Map<String, dynamic> serializeItem(NoteFile item, DateTime? mtime) => {
+        'content': item.content,
+        'path': item.path,
+        'lastModified': item.lastModified.millisecondsSinceEpoch,
+        'mtime': mtime?.millisecondsSinceEpoch,
       };
 
-      for (final note in _cache) {
-        (data['files'] as Map<String, dynamic>)[note.relativePath] = {
-          'content': note.content,
-          'path': note.path,
-          'lastModified': note.lastModified.millisecondsSinceEpoch,
-          'mtime': _lastModified[note.relativePath]?.millisecondsSinceEpoch,
-        };
-      }
-
-      await cacheFile.writeAsString(jsonEncode(data));
-      Log.d(
-          '📝 NoteRepository: Persisted ${_cache.length} files to disk cache');
-    } catch (e) {
-      Log.e('❌ NoteRepository: Error persisting cache', error: e);
-    }
+  @override
+  (NoteFile, DateTime?) deserializeItem(
+      String key, Map<String, dynamic> data) {
+    final item = NoteFile(
+      path: data['path'] as String,
+      relativePath: key,
+      content: data['content'] as String,
+      lastModified: DateTime.fromMillisecondsSinceEpoch(
+        data['lastModified'] as int,
+      ),
+    );
+    final mtime = data['mtime'] != null
+        ? DateTime.fromMillisecondsSinceEpoch(data['mtime'] as int)
+        : null;
+    return (item, mtime);
   }
 
-  /// Restore cache and mtime index from disk
-  Future<void> _restoreCache() async {
-    try {
-      final dir = _storageService.orgDirectory;
-      if (dir == null) return;
+  // --- domain-specific methods ----------------------------------------------
 
-      final cacheFile = File(path.join(dir.path, '._note_cache.json'));
-      if (!await cacheFile.exists()) return;
+  /// Get cached notes.
+  List<NoteFile> get cachedNotes => List.unmodifiable(cache.values);
 
-      final content = await cacheFile.readAsString();
-      final data = jsonDecode(content) as Map<String, dynamic>;
-
-      if (data['version'] != 1) return;
-
-      final files = data['files'] as Map<String, dynamic>;
-      for (final entry in files.entries) {
-        final relativePath = entry.key;
-        final fileData = entry.value as Map<String, dynamic>;
-
-        _cache.add(NoteFile(
-          path: fileData['path'] as String,
-          relativePath: relativePath,
-          content: fileData['content'] as String,
-          lastModified: DateTime.fromMillisecondsSinceEpoch(
-            fileData['lastModified'] as int,
-          ),
-        ));
-
-        if (fileData['mtime'] != null) {
-          _lastModified[relativePath] = DateTime.fromMillisecondsSinceEpoch(
-            fileData['mtime'] as int,
-          );
-        }
-      }
-
-      Log.i(
-          '📝 NoteRepository: Restored ${_cache.length} files from disk cache');
-    } catch (e) {
-      Log.e('❌ NoteRepository: Error restoring cache, will do full load',
-          error: e);
-      _cache.clear();
-      _lastModified.clear();
-    }
-  }
-
-  /// Clear cache manually
-  void clearCache() {
-    _cache.clear();
-    _lastModified.clear();
-    Log.d('📝 NoteRepository: Cache cleared');
-  }
-
-  /// Save note file
+  /// Save note file.
   Future<void> save(NoteFile noteFile) async {
     try {
       final file = File(noteFile.path);
-      await _storageService.writeFile(file, noteFile.content);
-
-      // Update cache
-      final index = _cache.indexWhere((n) => n.path == noteFile.path);
-      if (index != -1) {
-        _cache[index] = noteFile.copyWith(lastModified: DateTime.now());
-      } else {
-        _cache.add(noteFile.copyWith(lastModified: DateTime.now()));
-      }
-
-      // Re-sort
-      _cache.sort((a, b) => b.lastModified.compareTo(a.lastModified));
-
+      await storageService.writeFile(file, noteFile.content);
+      cache[noteFile.relativePath] =
+          noteFile.copyWith(lastModified: DateTime.now());
       Log.d('📝 NoteRepository: Saved note file ${noteFile.relativePath}');
     } catch (e) {
       Log.e('❌ NoteRepository: Error saving note file', error: e);
@@ -359,7 +115,6 @@ class NoteRepository {
       throw ArgumentError('Note path cannot be empty');
     }
 
-    // Normalize to forward slashes to make it consistent across platforms.
     final normalized = path.posix.normalize(trimmed.replaceAll('\\', '/'));
 
     if (path.posix.isAbsolute(normalized)) {
@@ -380,23 +135,22 @@ class NoteRepository {
     return sanitized;
   }
 
-  /// Create new note file
+  /// Create new note file.
   Future<NoteFile> create(String relativePath, String content) async {
-    final dir = _storageService.notesDirectory;
+    final dir = directory;
     if (dir == null) {
       throw Exception('Notes directory not initialized');
     }
 
     final sanitizedRelativePath = _sanitizeRelativePath(relativePath);
-    final filePath = path.normalize(path.join(dir.path, sanitizedRelativePath));
+    final filePath =
+        path.normalize(path.join(dir.path, sanitizedRelativePath));
 
     if (!path.isWithin(dir.path, filePath)) {
       throw ArgumentError('Note path escapes notes directory');
     }
 
     final file = File(filePath);
-
-    // Ensure parent directory exists
     await file.parent.create(recursive: true);
 
     final noteFile = NoteFile(
@@ -410,12 +164,12 @@ class NoteRepository {
     return noteFile;
   }
 
-  /// Delete note file
+  /// Delete note file.
   Future<void> delete(NoteFile noteFile) async {
     try {
       final file = File(noteFile.path);
-      await _storageService.deleteFile(file);
-      _cache.removeWhere((n) => n.path == noteFile.path);
+      await storageService.deleteFile(file);
+      cache.remove(noteFile.relativePath);
       Log.d('📝 NoteRepository: Deleted note file ${noteFile.relativePath}');
     } catch (e) {
       Log.e('❌ NoteRepository: Error deleting note file', error: e);

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:planova/constants/app_constants.dart';
 import 'package:planova/services/widget_service.dart';
 import 'package:planova/utils/logger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:planova/services/shared_prefs_service.dart';
 
 /// Provider for managing widget-related settings
 class WidgetProvider extends ChangeNotifier {
@@ -49,7 +49,7 @@ class WidgetProvider extends ChangeNotifier {
     _logger.entry('_loadWidgetTheme');
 
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       _widgetDarkTheme = prefs.getBool(AppConstants.widgetThemeKey) ?? false;
       _logger.debug('Loaded widget theme: $_widgetDarkTheme');
     } catch (e, stackTrace) {
@@ -65,7 +65,7 @@ class WidgetProvider extends ChangeNotifier {
     _logger.entry('_loadWidgetTransparency');
 
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       _widgetTransparency =
           prefs.getDouble(AppConstants.widgetTransparencyKey) ?? 1.0;
       _logger.debug('Loaded widget transparency: $_widgetTransparency');
@@ -83,7 +83,7 @@ class WidgetProvider extends ChangeNotifier {
 
     try {
       _widgetDarkTheme = isDark;
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await prefs.setBool(AppConstants.widgetThemeKey, isDark);
 
       _logger.debug('Widget theme saved: $isDark');
@@ -107,7 +107,7 @@ class WidgetProvider extends ChangeNotifier {
 
     try {
       _widgetTransparency = transparency.clamp(0.0, 1.0);
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await prefs.setDouble(
           AppConstants.widgetTransparencyKey, _widgetTransparency);
 

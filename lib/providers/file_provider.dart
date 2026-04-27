@@ -16,7 +16,7 @@ import 'package:planova/services/widget_service.dart';
 import 'package:planova/utils/logger.dart';
 import 'package:planova/utils/markdown_parser.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:planova/services/shared_prefs_service.dart';
 
 class FileProvider extends ChangeNotifier {
   final StorageService _storageService = StorageService();
@@ -63,7 +63,6 @@ class FileProvider extends ChangeNotifier {
       }
 
       // Update widget with today's content
-      // ignore: use_build_context_synchronously
       await _updateWidget(context);
 
       // Start periodic widget updates
@@ -321,13 +320,13 @@ class FileProvider extends ChangeNotifier {
         } catch (e) {
           Log.w(
               '📱 FileProvider: Could not access ThemeProvider, falling back to SharedPreferences');
-          final prefs = await SharedPreferences.getInstance();
+          final prefs = SharedPrefsService.instance;
           isDarkTheme = prefs.getBool(AppConstants.widgetThemeKey) ?? false;
           transparency =
               prefs.getDouble(AppConstants.widgetTransparencyKey) ?? 1.0;
         }
       } else {
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = SharedPrefsService.instance;
         isDarkTheme = prefs.getBool(AppConstants.widgetThemeKey) ?? false;
         transparency =
             prefs.getDouble(AppConstants.widgetTransparencyKey) ?? 1.0;

@@ -252,7 +252,8 @@ class DailyContentHelper {
       if (eventsHeaderIndex != null) {
         // Events section exists - find the last event line
         int lastEventIndex = eventsHeaderIndex + 1;
-        for (int i = eventsHeaderIndex + 1; i < eventsSectionEndIndex!; i++) {
+        final eventsEnd = eventsSectionEndIndex!;
+        for (int i = eventsHeaderIndex + 1; i < eventsEnd; i++) {
           if (_isEventLine(lines[i])) {
             lastEventIndex = i;
           }
@@ -260,7 +261,7 @@ class DailyContentHelper {
 
         // Check if there are any events in the section
         bool hasEvents = false;
-        for (int i = eventsHeaderIndex + 1; i < eventsSectionEndIndex!; i++) {
+        for (int i = eventsHeaderIndex + 1; i < eventsEnd; i++) {
           if (_isEventLine(lines[i])) {
             hasEvents = true;
             break;
@@ -365,7 +366,8 @@ class DailyContentHelper {
       if (tasksHeaderIndex != null) {
         // Tasks section exists - find the last todo line
         int lastTodoIndex = tasksHeaderIndex + 1;
-        for (int i = tasksHeaderIndex + 1; i < tasksSectionEndIndex!; i++) {
+        final tasksEnd = tasksSectionEndIndex!;
+        for (int i = tasksHeaderIndex + 1; i < tasksEnd; i++) {
           if (_isTodoLine(lines[i])) {
             lastTodoIndex = i;
           }
@@ -373,7 +375,7 @@ class DailyContentHelper {
 
         // Check if there are any todos in the section
         bool hasTodos = false;
-        for (int i = tasksHeaderIndex + 1; i < tasksSectionEndIndex!; i++) {
+        for (int i = tasksHeaderIndex + 1; i < tasksEnd; i++) {
           if (_isTodoLine(lines[i])) {
             hasTodos = true;
             break;

@@ -1,5 +1,5 @@
 import 'package:home_widget/home_widget.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:planova/services/shared_prefs_service.dart';
 
 import 'package:flutter/material.dart';
 
@@ -51,7 +51,7 @@ class SettingsProvider extends ChangeNotifier {
     _logger.entry('_loadStoragePath');
 
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       _customStoragePath = prefs.getString(AppConstants.storagePathKey);
       _logger.debug('Loaded custom storage path: $_customStoragePath');
       if (_customStoragePath != null && _customStoragePath!.isNotEmpty) {
@@ -78,7 +78,7 @@ class SettingsProvider extends ChangeNotifier {
     _logger.entry('_loadTemplate');
 
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       _dailyTemplate = prefs.getString(AppConstants.templateKey) ??
           AppConstants.defaultDailyTemplate;
       _logger
@@ -97,7 +97,7 @@ class SettingsProvider extends ChangeNotifier {
 
     try {
       _customStoragePath = path;
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
 
       if (path != null) {
         await prefs.setString(AppConstants.storagePathKey, path);
@@ -134,7 +134,7 @@ class SettingsProvider extends ChangeNotifier {
 
     try {
       _dailyTemplate = template;
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await prefs.setString(AppConstants.templateKey, template);
 
       _logger.debug('Daily template saved: ${template.length} characters');

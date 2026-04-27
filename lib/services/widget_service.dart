@@ -7,6 +7,7 @@ import 'package:planova/models/daily_file.dart';
 import 'package:planova/models/note_file.dart';
 import 'package:planova/themes/app_themes.dart';
 import 'package:planova/utils/logger.dart';
+import 'package:planova/services/shared_prefs_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 
@@ -74,7 +75,7 @@ class WidgetService {
 
   static Future<void> updateWidgetColors() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await _saveWidgetColors(prefs);
 
       await HomeWidget.saveWidgetData(
@@ -145,7 +146,7 @@ class WidgetService {
       final widgetContent = _formatDailyContentWithMarkdown(content);
 
       // Save to SharedPreferences for widget access
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await prefs.setString(_dailyContentKey, widgetContent);
       await prefs.setString(_dateKey, dailyFile.date);
 
@@ -201,7 +202,7 @@ class WidgetService {
       final widgetContent = _formatNotesWithMarkdown(recentNotes);
 
       // Save to SharedPreferences for widget access
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await prefs.setString(_notesContentKey, widgetContent);
 
       // Save theme preference if provided
@@ -363,7 +364,7 @@ class WidgetService {
   static Future<void> updateWidgetTheme(bool isDarkTheme) async {
     try {
       // Save theme preference
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await prefs.setBool(AppConstants.widgetThemeKey, isDarkTheme);
       await HomeWidget.saveWidgetData<bool>(
         AppConstants.widgetThemeKey,
@@ -396,7 +397,7 @@ class WidgetService {
   static Future<void> updateWidgetTransparency(double transparency) async {
     try {
       // Save transparency preference
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await prefs.setDouble(AppConstants.widgetTransparencyKey, transparency);
       await HomeWidget.saveWidgetData<double>(
         AppConstants.widgetTransparencyKey,
@@ -425,7 +426,7 @@ class WidgetService {
     try {
       const widgetContent = 'No events or tasks for today';
 
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await prefs.setString(_dailyContentKey, widgetContent);
       await prefs.setString(_dateKey, date);
 
@@ -447,7 +448,7 @@ class WidgetService {
   /// Clear widget data
   static Future<void> clearWidget() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = SharedPrefsService.instance;
       await prefs.remove(_dailyContentKey);
       await prefs.remove(_notesContentKey);
       await prefs.remove(_dateKey);

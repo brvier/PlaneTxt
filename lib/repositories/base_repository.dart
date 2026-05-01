@@ -177,6 +177,17 @@ abstract class BaseRepository<T> {
     return allFiles;
   }
 
+  /// Quickly populate [cache] from the on-disk JSON cache and return the
+  /// items sorted by [compare]. Does NOT scan the filesystem or revalidate
+  /// mtimes — intended as a "fast first paint" stage before [loadAll].
+  Future<List<T>> restoreFromDiskCache() async {
+    if (cache.isEmpty) {
+      await _restoreCache();
+    }
+    if (cache.isEmpty) return const [];
+    return cache.values.toList()..sort(compare);
+  }
+
   int get cacheSize => cache.length;
 
   void clearCache() {

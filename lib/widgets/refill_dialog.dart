@@ -12,13 +12,6 @@ class RefillTodo {
   });
 }
 
-class RefileItem {
-  final String content;
-  final String type;
-
-  RefileItem({required this.content, required this.type});
-}
-
 class RefillDialog extends StatefulWidget {
   final List<RefillTodo> undoneTodos;
   final Function(List<RefillTodo>) onRefill;

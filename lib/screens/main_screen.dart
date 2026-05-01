@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:planova/providers/daily_file_provider.dart';
@@ -83,14 +84,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     Log.i('🚀 MainScreen: Starting provider initialization...');
 
     try {
-      // Initialize directories first
+      // 1. Directories first — everything else depends on this.
       Log.i('🚀 MainScreen: Initializing DirectoryProvider...');
       final directoryProvider = context.read<DirectoryProvider>();
       await directoryProvider.initializeDirectories(context);
 
       if (!mounted) return;
 
-      // Start monitoring dailies for external changes
+      // 2. Start file-change polling (cheap). Notification scheduling for
+      //    existing events is deferred to the background phase below so it
+      //    doesn't block today's first paint.
       final dailiesDirectory = directoryProvider.dailiesDirectory;
       if (dailiesDirectory != null) {
         await FileMonitorService().initialize(dailiesDirectory);
@@ -101,29 +104,58 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       if (!mounted) return;
 
-      // Initialize daily files (full load on first startup)
-      Log.i('🚀 MainScreen: Loading daily files...');
-      await context.read<DailyFileProvider>().loadDailyFiles();
+      // 3. Today-priority load: disk-cache restore + today refresh. The
+      //    calendar can paint with last-known content immediately after.
+      Log.i('🚀 MainScreen: Today-priority load...');
+      final dailyProvider = context.read<DailyFileProvider>();
+      await dailyProvider.loadTodayPriority();
 
       if (!mounted) return;
 
-      // Initialize notes (full load on first startup)
-      Log.i('🚀 MainScreen: Loading note files...');
-      await context.read<NoteFileProvider>().loadNoteFiles();
+      // 4. Everything else runs in the background — no await on the
+      //    critical path.
+      unawaited(_runBackgroundStartupTasks());
 
-      if (!mounted) return;
-
-      // Start widget update timers
-      context.read<DailyFileProvider>().startWidgetUpdateTimer();
-      context.read<NoteFileProvider>().startWidgetUpdateTimer();
-
-      // Handle any shared intents (ICS files, etc.)
-      await _handleSharedIntents();
-
-      Log.i('🚀 MainScreen: All providers initialized successfully');
+      Log.i('🚀 MainScreen: Critical-path initialization complete');
     } catch (e) {
       Log.e('❌ MainScreen: Error initializing providers', error: e);
       rethrow;
+    }
+  }
+
+  Future<void> _runBackgroundStartupTasks() async {
+    try {
+      final dailyProvider = context.read<DailyFileProvider>();
+      final noteProvider = context.read<NoteFileProvider>();
+
+      // Full mtime sweep + reload of stale daily files.
+      Log.i('🚀 MainScreen: Background — full daily file validation...');
+      await dailyProvider.loadDailyFiles();
+
+      if (!mounted) return;
+
+      // Schedule notifications for existing events using already-loaded
+      // content — avoids a second filesystem-wide scan + read.
+      await FileMonitorService()
+          .scheduleExistingEvents(dailyFiles: dailyProvider.dailyFiles);
+
+      if (!mounted) return;
+
+      // Notes — user is on the Calendar tab; safe to defer.
+      Log.i('🚀 MainScreen: Background — loading note files...');
+      await noteProvider.loadNoteFiles();
+
+      if (!mounted) return;
+
+      dailyProvider.startWidgetUpdateTimer();
+      noteProvider.startWidgetUpdateTimer();
+
+      // Shared intents (ICS files, etc.)
+      await _handleSharedIntents();
+
+      Log.i('🚀 MainScreen: Background initialization complete');
+    } catch (e) {
+      Log.e('❌ MainScreen: Error in background initialization', error: e);
     }
   }
 

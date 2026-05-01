@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
+import 'package:planova/models/daily_file.dart';
 import 'package:planova/services/notification_service.dart';
 import 'package:planova/services/storage_service.dart';
 import 'package:planova/utils/logger.dart';
@@ -36,11 +37,23 @@ class FileMonitorService {
     Log.i(
         '📁 FileMonitorService: Starting file monitoring for ${dailiesDirectory.path}');
 
-    // Schedule notifications for existing events on startup
-    await _scheduleExistingEvents();
-
-    // Start polling for file changes
+    // Start polling for file changes immediately. Notification scheduling
+    // for existing events is deferred — call [scheduleExistingEvents] from
+    // the caller once daily files are loaded.
     _startPolling();
+  }
+
+  /// Schedule notifications for events that already exist on disk.
+  /// Pass [dailyFiles] to reuse already-loaded content and avoid a second
+  /// filesystem-wide scan + read; otherwise the directory is scanned.
+  Future<void> scheduleExistingEvents({
+    Iterable<DailyFile>? dailyFiles,
+  }) async {
+    if (dailyFiles != null) {
+      await _scheduleExistingEventsFromFiles(dailyFiles);
+    } else {
+      await _scheduleExistingEvents();
+    }
   }
 
   void _startPolling() {
@@ -164,6 +177,40 @@ class FileMonitorService {
           '📁 FileMonitorService: Scheduled notifications for $scheduledCount files');
     } catch (e) {
       Log.e('❌ FileMonitorService: Error scheduling existing events', error: e);
+    }
+  }
+
+  Future<void> _scheduleExistingEventsFromFiles(
+      Iterable<DailyFile> dailyFiles) async {
+    if (_dailiesDirectory == null) return;
+
+    try {
+      final dir = StorageService().dailiesDirectory ?? _dailiesDirectory!;
+      Log.i(
+          '📁 FileMonitorService: Scheduling notifications from ${dailyFiles.length} cached daily files...');
+
+      // Review existing notifications first to remove invalid ones
+      await _notificationService.reviewNotifications(dir);
+
+      int scheduledCount = 0;
+      for (final dailyFile in dailyFiles) {
+        if (dailyFile.content.isEmpty) continue;
+
+        // Track mtime so the polling loop won't think this file is "new".
+        try {
+          _lastModified[dailyFile.date] =
+              File(dailyFile.path).lastModifiedSync();
+        } catch (_) {}
+
+        await _scheduleNotificationsForDate(dailyFile.date, dailyFile.content);
+        scheduledCount++;
+      }
+
+      Log.i(
+          '📁 FileMonitorService: Scheduled notifications for $scheduledCount files (from cache)');
+    } catch (e) {
+      Log.e('❌ FileMonitorService: Error scheduling existing events from cache',
+          error: e);
     }
   }
 

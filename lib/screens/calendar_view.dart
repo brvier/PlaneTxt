@@ -281,13 +281,10 @@ class _CalendarViewState extends State<CalendarView> {
 
   void _performRefill(BuildContext context, DailyFileProvider dailyFileProvider,
       List<RefillTodo> selectedTodos, String targetDate) async {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final targetDailyFile =
         await dailyFileProvider.ensureDailyFileLoaded(targetDate);
-    String targetContent = targetDailyFile?.content ?? '';
-
-    if (targetContent.isNotEmpty && !targetContent.endsWith('\n')) {
-      targetContent += '\n';
-    }
+    String targetContent = targetDailyFile?.content ?? themeProvider.dailyTemplate;
 
     final todosByDate = <String, List<RefillTodo>>{};
     for (final todo in selectedTodos) {
@@ -310,7 +307,8 @@ class _CalendarViewState extends State<CalendarView> {
     }
 
     for (final todo in selectedTodos) {
-      targetContent += '${todo.content}\n';
+      targetContent = DailyContentHelper.insertAfterLastTodo(
+          targetContent, todo.content, themeProvider.todoHeaderRegex);
     }
 
     if (context.mounted) {

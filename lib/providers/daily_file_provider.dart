@@ -8,14 +8,28 @@ import 'package:planova/services/file_monitor_service.dart';
 import 'package:planova/services/notification_service.dart';
 import 'package:planova/services/storage_service.dart';
 import 'package:planova/services/widget_service.dart';
+import 'package:planova/utils/daily_content_helper.dart';
 import 'package:planova/utils/logger.dart';
 import 'package:planova/utils/markdown_parser.dart';
+
+/// Cached parse result for one daily file. The [contentHash] is used to
+/// detect when [content] has changed and invalidate.
+class _ParsedDaily {
+  final int contentHash;
+  final List<TaskItem> tasks;
+  final List<CalendarEvent> events; // sorted by time
+  _ParsedDaily(this.contentHash, this.tasks, this.events);
+}
 
 class DailyFileProvider extends ChangeNotifier {
   final StorageService _storageService = StorageService();
   late DailyRepository _dailyRepository;
 
   List<DailyFile> _dailyFiles = [];
+  // Index of the same files keyed by date for O(1) lookup.
+  final Map<String, DailyFile> _byDate = {};
+  // Memoised task/event parsing per date — invalidated by content hash.
+  final Map<String, _ParsedDaily> _parseCache = {};
   String _selectedDate = '';
   String? _lastWidgetUpdateDate;
   Timer? _widgetUpdateTimer;
@@ -29,11 +43,56 @@ class DailyFileProvider extends ChangeNotifier {
   List<DailyFile> get dailyFiles => List.unmodifiable(_dailyFiles);
   String get selectedDate => _selectedDate;
 
+  // -- internal index/cache management ---------------------------------------
+
+  void _replaceAllFiles(List<DailyFile> files) {
+    _dailyFiles = files;
+    _byDate
+      ..clear()
+      ..addEntries(files.map((f) => MapEntry(f.date, f)));
+    // Drop cache entries for dates that no longer exist; keep the rest —
+    // their hash check will detect any content changes.
+    _parseCache.removeWhere((date, _) => !_byDate.containsKey(date));
+  }
+
+  void _upsertFile(DailyFile file) {
+    final existing = _byDate[file.date];
+    if (existing == null) {
+      _dailyFiles = [..._dailyFiles, file]
+        ..sort((a, b) => b.date.compareTo(a.date));
+    } else {
+      final idx = _dailyFiles.indexOf(existing);
+      if (idx != -1) {
+        _dailyFiles[idx] = file;
+      } else {
+        _dailyFiles = [..._dailyFiles, file]
+          ..sort((a, b) => b.date.compareTo(a.date));
+      }
+    }
+    _byDate[file.date] = file;
+    _parseCache.remove(file.date);
+  }
+
+  _ParsedDaily? _getParsed(String date) {
+    final file = _byDate[date];
+    if (file == null || file.content.isEmpty) return null;
+    final hash = file.content.hashCode;
+    final cached = _parseCache[date];
+    if (cached != null && cached.contentHash == hash) return cached;
+    final tasks = MarkdownParser.parseTasks(file.content);
+    final events = MarkdownParser.parseEvents(date, file.content)
+      ..sort((a, b) => a.time.compareTo(b.time));
+    final parsed = _ParsedDaily(hash, tasks, events);
+    _parseCache[date] = parsed;
+    return parsed;
+  }
+
   Future<void> loadDailyFiles({bool forceReload = false}) async {
     Log.i(
         '📅 DailyFileProvider: Loading daily files (forceReload: $forceReload)...');
     try {
-      _dailyFiles = await _dailyRepository.loadAll(forceReload: forceReload);
+      _replaceAllFiles(
+          await _dailyRepository.loadAll(forceReload: forceReload));
       Log.i('📅 DailyFileProvider: Loaded ${_dailyFiles.length} daily files');
 
       // Update widget with today's content
@@ -46,11 +105,43 @@ class DailyFileProvider extends ChangeNotifier {
     }
   }
 
+  /// Fast startup load: restore last-known content from disk cache and
+  /// refresh today's file from disk, notifying listeners after each step.
+  /// Does NOT do a full mtime sweep — call [loadDailyFiles] in the
+  /// background afterwards to validate the rest of the history.
+  Future<void> loadTodayPriority() async {
+    Log.i('📅 DailyFileProvider: Priority-loading today...');
+    try {
+      // Stage A: in-memory list from disk cache (instant).
+      final cached = await _dailyRepository.restoreFromDiskCache();
+      if (cached.isNotEmpty) {
+        _replaceAllFiles(cached);
+        Log.i(
+            '📅 DailyFileProvider: Restored ${cached.length} daily files from disk cache');
+        notifyListeners();
+      }
+
+      // Stage B: refresh today from disk so it's never stale.
+      final todayDate = getTodayDate();
+      final todayFile = await _dailyRepository.loadByDate(todayDate);
+      if (todayFile != null) {
+        _upsertFile(todayFile);
+      }
+
+      await _updateWidget();
+      notifyListeners();
+      Log.i('📅 DailyFileProvider: Today-priority load complete');
+    } catch (e) {
+      Log.e('❌ DailyFileProvider: Error in today-priority load', error: e);
+      rethrow;
+    }
+  }
+
   /// Incremental update - only load modified daily files
   Future<void> loadDailyFilesIncremental() async {
     Log.i('📅 DailyFileProvider: Loading incremental daily file changes...');
     try {
-      _dailyFiles = await _dailyRepository.loadIncremental();
+      _replaceAllFiles(await _dailyRepository.loadIncremental());
       Log.i(
           '📅 DailyFileProvider: Incremental load completed, ${_dailyFiles.length} total files');
 
@@ -121,73 +212,25 @@ class DailyFileProvider extends ChangeNotifier {
 ''';
   }
 
-  /// Add events to daily content
+  /// Add events to daily content via the shared content helper.
+  /// Each event becomes one logical line `- @HH:MM Title` followed by
+  /// indented description lines.
   String _addEventsToDailyContent(String content, List<CalendarEvent> events) {
-    // Sort events by time
-    events.sort((a, b) => a.time.compareTo(b.time));
+    final eventLines = events.map((e) {
+      final desc = e.description
+          .split('\n')
+          .where((l) => l.trim().isNotEmpty)
+          .map((l) => '  $l')
+          .join('\n');
+      final headerLine = '- @${e.formattedTime} ${e.title}';
+      return desc.isEmpty ? headerLine : '$headerLine\n$desc';
+    }).toList();
 
-    final lines = content.split('\n');
-    final newLines = <String>[];
-
-    bool inEventsSection = false;
-    bool eventsSectionFound = false;
-
-    for (final line in lines) {
-      // Check if we're entering the events section
-      if (line.trim().startsWith('## Events') ||
-          line.trim().startsWith('## Event')) {
-        newLines.add(line);
-        inEventsSection = true;
-        eventsSectionFound = true;
-
-        // Add all events after the header
-        for (final event in events) {
-          newLines.add('- @${event.formattedTime} ${event.title}');
-          if (event.description.isNotEmpty) {
-            // Add description as indented lines
-            final descriptionLines = event.description.split('\n');
-            for (final descLine in descriptionLines) {
-              if (descLine.trim().isNotEmpty) {
-                newLines.add('  $descLine');
-              }
-            }
-          }
-        }
-        continue;
-      }
-
-      // If we're in events section and hit a non-event, non-empty line, we're done with events
-      if (inEventsSection && line.trim().isNotEmpty && !_isEventLine(line)) {
-        inEventsSection = false;
-      }
-
-      newLines.add(line);
-    }
-
-    // If no events section was found, add one at the end
-    if (!eventsSectionFound) {
-      newLines.add('## Events');
-      newLines.add('');
-
-      for (final event in events) {
-        newLines.add('- @${event.formattedTime} ${event.title}');
-        if (event.description.isNotEmpty) {
-          final descriptionLines = event.description.split('\n');
-          for (final descLine in descriptionLines) {
-            if (descLine.trim().isNotEmpty) {
-              newLines.add('  $descLine');
-            }
-          }
-        }
-      }
-    }
-
-    return newLines.join('\n');
-  }
-
-  /// Check if a line is an event line
-  bool _isEventLine(String line) {
-    return RegExp(r'^\s*-\s*@\d{1,2}:\d{2}').hasMatch(line.trim());
+    return DailyContentHelper.insertEventsChronologically(
+      content,
+      eventLines,
+      r'^#{1,2}\s+.*Events?',
+    );
   }
 
   Future<void> saveDailyFile(
@@ -196,14 +239,7 @@ class DailyFileProvider extends ChangeNotifier {
       Log.d('📅 DailyFileProvider: Saving daily file for $date');
       final dailyFile = await _dailyRepository.create(date, content);
 
-      // Update local list
-      final index = _dailyFiles.indexWhere((d) => d.date == date);
-      if (index != -1) {
-        _dailyFiles[index] = dailyFile;
-      } else {
-        _dailyFiles.add(dailyFile);
-        _dailyFiles.sort((a, b) => b.date.compareTo(a.date));
-      }
+      _upsertFile(dailyFile);
 
       // Update widget with today's content
       await _updateWidget();
@@ -258,34 +294,17 @@ class DailyFileProvider extends ChangeNotifier {
   }
 
   /// Get daily file from memory cache only (fast, may be stale)
-  DailyFile? getDailyFileFromCache(String date) {
-    for (final d in _dailyFiles) {
-      if (d.date == date) return d;
-    }
-    return null;
-  }
+  DailyFile? getDailyFileFromCache(String date) => _byDate[date];
 
   /// Get daily file, always checking disk for latest version
   /// Use this when you need to ensure you have the most recent data
   Future<DailyFile?> getDailyFile(String date) async {
-    // Always check disk to get the latest version
-    // File could have been edited by another application
     final fromDisk = await _dailyRepository.loadByDate(date);
-
     if (fromDisk != null) {
-      // Update in-memory cache
-      final index = _dailyFiles.indexWhere((d) => d.date == date);
-      if (index != -1) {
-        _dailyFiles[index] = fromDisk;
-      } else {
-        _dailyFiles.add(fromDisk);
-        _dailyFiles.sort((a, b) => b.date.compareTo(a.date));
-      }
+      _upsertFile(fromDisk);
       Log.d('📅 DailyFileProvider: Loaded daily file for $date from disk');
       return fromDisk;
     }
-
-    // File doesn't exist on disk
     return null;
   }
 
@@ -302,42 +321,19 @@ class DailyFileProvider extends ChangeNotifier {
     return date;
   }
 
-  bool hasUndoneTodos(String date) {
-    final dailyFile = getDailyFileFromCache(date);
-    if (dailyFile == null || dailyFile.content.isEmpty) return false;
+  bool hasUndoneTodos(String date) =>
+      _getParsed(date)?.tasks.any((t) => !t.isCompleted) ?? false;
 
-    final tasks = MarkdownParser.parseTasks(dailyFile.content);
-    return tasks.any((task) => !task.isCompleted);
-  }
+  bool hasTodos(String date) => _getParsed(date)?.tasks.isNotEmpty ?? false;
 
-  bool hasTodos(String date) {
-    final dailyFile = getDailyFileFromCache(date);
-    if (dailyFile == null || dailyFile.content.isEmpty) return false;
+  int getUndoneTodoCount(String date) =>
+      _getParsed(date)?.tasks.where((t) => !t.isCompleted).length ?? 0;
 
-    final tasks = MarkdownParser.parseTasks(dailyFile.content);
-    return tasks.isNotEmpty;
-  }
+  List<CalendarEvent> getCalendarEvents(String date) =>
+      _getParsed(date)?.events ?? const [];
 
-  int getUndoneTodoCount(String date) {
-    final dailyFile = getDailyFileFromCache(date);
-    if (dailyFile == null || dailyFile.content.isEmpty) return 0;
-
-    final tasks = MarkdownParser.parseTasks(dailyFile.content);
-    return tasks.where((task) => !task.isCompleted).length;
-  }
-
-  List<CalendarEvent> getCalendarEvents(String date) {
-    final dailyFile = getDailyFileFromCache(date);
-    if (dailyFile == null || dailyFile.content.isEmpty) return [];
-
-    final events = MarkdownParser.parseEvents(date, dailyFile.content);
-    events.sort((a, b) => a.time.compareTo(b.time));
-    return events;
-  }
-
-  bool hasCalendarEvents(String date) {
-    return getCalendarEvents(date).isNotEmpty;
-  }
+  bool hasCalendarEvents(String date) =>
+      _getParsed(date)?.events.isNotEmpty ?? false;
 
   Future<void> checkDateChangeAndUpdateWidget() async {
     final todayDate = getTodayDate();

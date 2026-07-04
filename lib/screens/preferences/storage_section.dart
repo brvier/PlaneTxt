@@ -134,8 +134,7 @@ class StorageSection extends StatelessWidget {
         }
       }
 
-      final String? selectedDirectory =
-          await FilePicker.platform.getDirectoryPath();
+      final String? selectedDirectory = await FilePicker.getDirectoryPath();
 
       if (selectedDirectory != null && context.mounted) {
         final selectedDir = Directory(selectedDirectory);

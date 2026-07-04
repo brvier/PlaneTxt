@@ -53,7 +53,8 @@ class NotificationService {
 
     tz.initializeTimeZones();
     try {
-      final timeZoneName = await FlutterTimezone.getLocalTimezone();
+      final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
+      final timeZoneName = timeZoneInfo.identifier;
       tz.setLocalLocation(tz.getLocation(timeZoneName));
       Log.i('NotificationService: timezone=$timeZoneName');
     } catch (e) {
@@ -73,7 +74,7 @@ class NotificationService {
     );
 
     await _notifications.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: (response) {
         Log.i('Notification tapped: ${response.payload}');
       },
@@ -137,10 +138,10 @@ class NotificationService {
 
     Log.i('NotificationService: Firing immediate test notification');
     await _notifications.show(
-      0,
-      'Planova Test',
-      'If you see this, notifications work!',
-      _notificationDetails,
+      id: 0,
+      title: 'Planova Test',
+      body: 'If you see this, notifications work!',
+      notificationDetails: _notificationDetails,
       payload: 'test',
     );
     Log.i('NotificationService: show() completed');
@@ -158,11 +159,11 @@ class NotificationService {
     Log.i('NotificationService: TEST alarmClock at $time1');
     try {
       await _notifications.zonedSchedule(
-        1,
-        'Test: alarmClock mode',
-        'This used setAlarmClock()',
-        time1,
-        _notificationDetails,
+        id: 1,
+        title: 'Test: alarmClock mode',
+        body: 'This used setAlarmClock()',
+        scheduledDate: time1,
+        notificationDetails: _notificationDetails,
         payload: 'test_alarmClock',
         androidScheduleMode: AndroidScheduleMode.alarmClock,
       );
@@ -176,11 +177,11 @@ class NotificationService {
     Log.i('NotificationService: TEST exactAllowWhileIdle at $time2');
     try {
       await _notifications.zonedSchedule(
-        2,
-        'Test: exactAllowWhileIdle mode',
-        'This used setExactAndAllowWhileIdle()',
-        time2,
-        _notificationDetails,
+        id: 2,
+        title: 'Test: exactAllowWhileIdle mode',
+        body: 'This used setExactAndAllowWhileIdle()',
+        scheduledDate: time2,
+        notificationDetails: _notificationDetails,
         payload: 'test_exact',
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
@@ -194,11 +195,11 @@ class NotificationService {
     Log.i('NotificationService: TEST inexactAllowWhileIdle at $time3');
     try {
       await _notifications.zonedSchedule(
-        3,
-        'Test: inexactAllowWhileIdle mode',
-        'This used setAndAllowWhileIdle()',
-        time3,
-        _notificationDetails,
+        id: 3,
+        title: 'Test: inexactAllowWhileIdle mode',
+        body: 'This used setAndAllowWhileIdle()',
+        scheduledDate: time3,
+        notificationDetails: _notificationDetails,
         payload: 'test_inexact',
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
@@ -225,10 +226,10 @@ class NotificationService {
     Future.delayed(const Duration(seconds: 10), () async {
       Log.i('NotificationService: Timer fired, showing notification now');
       await _notifications.show(
-        99,
-        'Planova Timer Test',
-        'This bypassed AlarmManager entirely (Dart Timer + show())',
-        _notificationDetails,
+        id: 99,
+        title: 'Planova Timer Test',
+        body: 'This bypassed AlarmManager entirely (Dart Timer + show())',
+        notificationDetails: _notificationDetails,
         payload: 'test_timer',
       );
       Log.i('NotificationService: Timer notification shown');
@@ -270,11 +271,11 @@ class NotificationService {
 
     try {
       await _notifications.zonedSchedule(
-        id,
-        '$timeStr - $title',
-        description,
-        scheduledTZ,
-        _notificationDetails,
+        id: id,
+        title: '$timeStr - $title',
+        body: description,
+        scheduledDate: scheduledTZ,
+        notificationDetails: _notificationDetails,
         payload: 'event_${date}_$id',
         androidScheduleMode: mode,
       );
@@ -291,11 +292,11 @@ class NotificationService {
       if (mode != AndroidScheduleMode.inexactAllowWhileIdle) {
         try {
           await _notifications.zonedSchedule(
-            id,
-            '$timeStr - $title',
-            description,
-            scheduledTZ,
-            _notificationDetails,
+            id: id,
+            title: '$timeStr - $title',
+            body: description,
+            scheduledDate: scheduledTZ,
+            notificationDetails: _notificationDetails,
             payload: 'event_${date}_$id',
             androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           );
@@ -308,7 +309,7 @@ class NotificationService {
   }
 
   Future<void> cancelNotification(int id) async {
-    await _notifications.cancel(id);
+    await _notifications.cancel(id: id);
   }
 
   Future<void> cancelAllNotifications() async {
@@ -324,7 +325,7 @@ class NotificationService {
     for (final n in pending) {
       final payload = n.payload ?? '';
       if (payload.startsWith('event_${date}_')) {
-        await _notifications.cancel(n.id);
+        await _notifications.cancel(id: n.id);
       }
     }
   }
@@ -410,7 +411,7 @@ class NotificationService {
 
         final parts = payload.split('_');
         if (parts.length < 3) {
-          await _notifications.cancel(notification.id);
+          await _notifications.cancel(id: notification.id);
           removedCount++;
           continue;
         }
@@ -426,7 +427,7 @@ class NotificationService {
             final day = int.parse(date.substring(6, 8));
             final eventDate = DateTime(year, month, day);
             if (eventDate.add(const Duration(hours: 25)).isBefore(now)) {
-              await _notifications.cancel(notification.id);
+              await _notifications.cancel(id: notification.id);
               removedCount++;
               continue;
             }
@@ -436,7 +437,7 @@ class NotificationService {
         // Remove if date file no longer exists
         final dateFile = File('${dailiesDirectory.path}/$date.md');
         if (!dateFile.existsSync()) {
-          await _notifications.cancel(notification.id);
+          await _notifications.cancel(id: notification.id);
           removedCount++;
           continue;
         }
@@ -445,7 +446,7 @@ class NotificationService {
         if (notificationId != null) {
           final validEvents = validEventsByDate[date];
           if (validEvents == null || !validEvents.contains(notificationId)) {
-            await _notifications.cancel(notification.id);
+            await _notifications.cancel(id: notification.id);
             removedCount++;
             continue;
           }

@@ -5,7 +5,6 @@ import 'package:planova/providers/event_provider.dart';
 import 'package:planova/providers/note_file_provider.dart';
 import 'package:planova/providers/theme_provider.dart';
 import 'package:planova/screens/main_screen.dart';
-import 'package:planova/services/notification_service.dart';
 import 'package:planova/services/shared_prefs_service.dart';
 import 'package:planova/services/widget_service.dart';
 import 'package:provider/provider.dart';
@@ -19,10 +18,9 @@ void main() async {
   // Initialize widget service
   await WidgetService.initialize();
 
-  // Initialize notification service
-  final notificationService = NotificationService();
-  await notificationService.initialize();
-  await notificationService.requestPermissions();
+  // Notification service init + permission request happen after first
+  // frame, in MainScreen's background startup tasks — they must not block
+  // first paint.
 
   runApp(const PlanovaApp());
 }
@@ -42,17 +40,6 @@ class PlanovaApp extends StatelessWidget {
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
-          if (!themeProvider.isInitialized) {
-            return const MaterialApp(
-              home: Scaffold(
-                body: Center(
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-              debugShowCheckedModeBanner: false,
-            );
-          }
-
           return MaterialApp(
             title: 'Planova',
             theme: themeProvider.lightTheme,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:home_widget/home_widget.dart';
 import 'package:planova/services/shared_prefs_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
 
@@ -45,56 +46,53 @@ class ThemeProvider extends ChangeNotifier {
   String get eventHeaderRegex => _eventHeaderRegex;
   String get logHeaderRegex => _logHeaderRegex;
 
-  bool _isInitialized = false;
-  bool get isInitialized => _isInitialized;
-  final Completer<void> _initCompleter = Completer<void>();
+  bool get isInitialized => true;
 
   ThemeProvider() {
     Log.i('🚀 ThemeProvider: Constructor called');
     _initialize();
   }
 
-  Future<void> _initialize() async {
-    try {
-      await Future.wait([
-        _loadTheme(),
-        _loadAppTheme(),
-        _loadStoragePath(),
-        _loadTemplate(),
-        _loadWidgetTheme(),
-        _loadWidgetTransparency(),
-        _loadTodoHeaderRegex(),
-        _loadEventHeaderRegex(),
-        _loadLogHeaderRegex(),
-      ]).timeout(const Duration(seconds: 10));
-    } catch (e) {
-      Log.e('❌ ThemeProvider: Initialization error (using defaults)', error: e);
+  /// SharedPreferences is loaded before runApp (SharedPrefsService), so all
+  /// values are available synchronously — no loading gate needed. Only the
+  /// side effects (widget sync, legacy key migration) stay async.
+  void _initialize() {
+    final prefs = SharedPrefsService.instance;
+
+    _themeMode = ThemeMode.values[prefs.getInt(_themeKey) ?? 0];
+    _appTheme =
+        AppTheme.values[prefs.getInt(_appThemeKey) ?? AppTheme.gruvbox.index];
+    _customStoragePath = prefs.getString(_storagePathKey);
+    _dailyTemplate = prefs.getString(_templateKey) ?? _getDefaultTemplate();
+    _widgetDarkTheme = prefs.getBool(AppConstants.widgetThemeKey) ??
+        prefs.getBool(_legacyWidgetThemeKey) ??
+        false;
+    _widgetTransparency = prefs.getDouble(AppConstants.widgetTransparencyKey) ??
+        prefs.getDouble(_legacyWidgetTransparencyKey) ??
+        1.0;
+    _todoHeaderRegex =
+        prefs.getString(_todoHeaderRegexKey) ?? r'^#{1,2}\s+.*(Todos?|Tasks?)';
+    _eventHeaderRegex =
+        prefs.getString(_eventHeaderRegexKey) ?? r'^#{1,2}\s+.*Events?';
+    _logHeaderRegex =
+        prefs.getString(_logHeaderRegexKey) ?? r'^#{1,2}\s+.*(Journal|Logs?)';
+
+    unawaited(_runInitSideEffects(prefs));
+    Log.i('🚀 ThemeProvider: Initialization completed');
+  }
+
+  Future<void> _runInitSideEffects(SharedPreferences prefs) async {
+    // Migrate legacy (double-prefixed) keys to their canonical names.
+    if (prefs.getBool(AppConstants.widgetThemeKey) == null &&
+        prefs.getBool(_legacyWidgetThemeKey) != null) {
+      await prefs.setBool(AppConstants.widgetThemeKey, _widgetDarkTheme);
+    }
+    if (prefs.getDouble(AppConstants.widgetTransparencyKey) == null &&
+        prefs.getDouble(_legacyWidgetTransparencyKey) != null) {
+      await prefs.setDouble(
+          AppConstants.widgetTransparencyKey, _widgetTransparency);
     }
 
-    _isInitialized = true;
-    _initCompleter.complete();
-    Log.i('🚀 ThemeProvider: Initialization completed');
-    notifyListeners();
-  }
-
-  Future<void> _loadTheme() async {
-    final prefs = SharedPrefsService.instance;
-    final themeIndex = prefs.getInt(_themeKey) ?? 0;
-    _themeMode = ThemeMode.values[themeIndex];
-  }
-
-  Future<void> _loadAppTheme() async {
-    final prefs = SharedPrefsService.instance;
-    final themeIndex = prefs.getInt(_appThemeKey) ?? AppTheme.gruvbox.index;
-    _appTheme = AppTheme.values[themeIndex];
-  }
-
-  Future<void> _loadStoragePath() async {
-    Log.d('🔍 ThemeProvider: Loading storage path...');
-    final prefs = SharedPrefsService.instance;
-    _customStoragePath = prefs.getString(_storagePathKey);
-    Log.d('🔍 ThemeProvider: Loaded custom storage path: $_customStoragePath');
-    Log.d('🔍 ThemeProvider: Storage path key: $_storagePathKey');
     if (_customStoragePath != null && _customStoragePath!.isNotEmpty) {
       try {
         await HomeWidget.saveWidgetData<String>(
@@ -106,66 +104,6 @@ class ThemeProvider extends ChangeNotifier {
             error: e, stackTrace: stackTrace);
       }
     }
-  }
-
-  Future<void> _loadTemplate() async {
-    final prefs = SharedPrefsService.instance;
-    _dailyTemplate = prefs.getString(_templateKey) ?? _getDefaultTemplate();
-  }
-
-  Future<void> _loadWidgetTheme() async {
-    final prefs = SharedPrefsService.instance;
-
-    final current = prefs.getBool(AppConstants.widgetThemeKey);
-    if (current != null) {
-      _widgetDarkTheme = current;
-      return;
-    }
-
-    final legacy = prefs.getBool(_legacyWidgetThemeKey);
-    if (legacy != null) {
-      _widgetDarkTheme = legacy;
-      await prefs.setBool(AppConstants.widgetThemeKey, legacy);
-      return;
-    }
-
-    _widgetDarkTheme = false;
-  }
-
-  Future<void> _loadWidgetTransparency() async {
-    final prefs = SharedPrefsService.instance;
-
-    final current = prefs.getDouble(AppConstants.widgetTransparencyKey);
-    if (current != null) {
-      _widgetTransparency = current;
-      return;
-    }
-
-    final legacy = prefs.getDouble(_legacyWidgetTransparencyKey);
-    if (legacy != null) {
-      _widgetTransparency = legacy;
-      await prefs.setDouble(AppConstants.widgetTransparencyKey, legacy);
-      return;
-    }
-
-    _widgetTransparency = 1.0;
-  }
-
-  Future<void> _loadTodoHeaderRegex() async {
-    final prefs = SharedPrefsService.instance;
-    _todoHeaderRegex = prefs.getString(_todoHeaderRegexKey) ?? r'^#{1,2}\s+.*(Todos?|Tasks?)';
-  }
-
-  Future<void> _loadEventHeaderRegex() async {
-    final prefs = SharedPrefsService.instance;
-    _eventHeaderRegex =
-        prefs.getString(_eventHeaderRegexKey) ?? r'^#{1,2}\s+.*Events?';
-  }
-
-  Future<void> _loadLogHeaderRegex() async {
-    final prefs = SharedPrefsService.instance;
-    _logHeaderRegex =
-        prefs.getString(_logHeaderRegexKey) ?? r'^#{1,2}\s+.*(Journal|Logs?)';
   }
 
   String _getDefaultTemplate() {
@@ -277,12 +215,8 @@ class ThemeProvider extends ChangeNotifier {
     return 'Default (App Documents/Org)';
   }
 
-  Future<void> waitForInitialization() async {
-    if (_isInitialized) return;
-    await _initCompleter.future.timeout(const Duration(seconds: 10));
-    Log.d(
-        '🔍 ThemeProvider: waitForInitialization completed, customStoragePath: $_customStoragePath');
-  }
+  /// Kept for API compatibility — initialization is now synchronous.
+  Future<void> waitForInitialization() async {}
 
   ThemeData get lightTheme {
     return AppThemes.getTheme(_appTheme).lightTheme;

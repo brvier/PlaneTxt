@@ -15,9 +15,13 @@ class FileMonitorService {
 
   Directory? _dailiesDirectory;
   Timer? _pollingTimer;
+  StreamSubscription<FileSystemEvent>? _watchSubscription;
+  Timer? _watchDebounceTimer;
   final Map<String, DateTime> _lastModified = {};
   final NotificationService _notificationService = NotificationService();
-  static const Duration _pollingInterval = Duration(seconds: 5);
+  // Fallback polling interval when native file watching isn't available.
+  static const Duration _pollingInterval = Duration(seconds: 30);
+  static const Duration _watchDebounce = Duration(seconds: 2);
 
   // Track dates recently scheduled by DailyFileProvider to avoid
   // the FileMonitorService cancelling those notifications immediately.
@@ -37,15 +41,55 @@ class FileMonitorService {
     Log.i(
         '📁 FileMonitorService: Starting file monitoring for ${dailiesDirectory.path}');
 
-    // Start polling for file changes immediately. Notification scheduling
-    // for existing events is deferred — call [scheduleExistingEvents] from
-    // the caller once daily files are loaded.
-    _startPolling();
+    // Prefer native file-system events (inotify & co) over polling; fall
+    // back to a slow poll where watching isn't supported. Notification
+    // scheduling for existing events is deferred — call
+    // [scheduleExistingEvents] from the caller once daily files are loaded.
+    if (!_startWatching(dailiesDirectory)) {
+      _startPolling();
+    }
+  }
+
+  /// Returns true if native watching could be set up.
+  bool _startWatching(Directory dir) {
+    if (!FileSystemEntity.isWatchSupported) return false;
+    try {
+      _watchSubscription?.cancel();
+      _watchSubscription = dir.watch().listen(
+        (event) {
+          // Coalesce bursts of events (editors write several times).
+          _watchDebounceTimer?.cancel();
+          _watchDebounceTimer = Timer(_watchDebounce, _checkForFileChanges);
+        },
+        onError: (Object e) {
+          Log.w('📁 FileMonitorService: Watch failed, falling back to polling',
+              error: e);
+          _watchSubscription?.cancel();
+          _watchSubscription = null;
+          _startPolling();
+        },
+      );
+      Log.i('📁 FileMonitorService: Using native file-system watching');
+      return true;
+    } catch (e) {
+      Log.w(
+          '📁 FileMonitorService: Could not start watching, using polling',
+          error: e);
+      return false;
+    }
+  }
+
+  /// Today as a yyyyMMdd string — daily dates compare correctly as strings.
+  static String _todayString() {
+    final now = DateTime.now();
+    return '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
   }
 
   /// Schedule notifications for events that already exist on disk.
   /// Pass [dailyFiles] to reuse already-loaded content and avoid a second
   /// filesystem-wide scan + read; otherwise the directory is scanned.
+  /// Only today and future dates are considered — past events can never
+  /// produce a notification.
   Future<void> scheduleExistingEvents({
     Iterable<DailyFile>? dailyFiles,
   }) async {
@@ -68,13 +112,15 @@ class FileMonitorService {
 
     try {
       final dir = StorageService().dailiesDirectory ?? _dailiesDirectory!;
-      final files = dir
-          .listSync()
+      final files = await dir
+          .list()
           .where((entity) => entity is File && entity.path.endsWith('.md'))
-          .cast<File>();
+          .cast<File>()
+          .toList();
 
       // Track which dates still have files
       final existingDates = <String>{};
+      final today = _todayString();
 
       for (final file in files) {
         final fileName = path.basename(file.path);
@@ -83,7 +129,9 @@ class FileMonitorService {
 
         final date = dateMatch.group(1)!;
         existingDates.add(date);
-        final lastModified = file.lastModifiedSync();
+        // Past dates can't produce notifications — don't track or handle them.
+        if (date.compareTo(today) < 0) continue;
+        final lastModified = await file.lastModified();
 
         // Check if file was modified since last check
         if (_lastModified[date] == null ||
@@ -153,11 +201,13 @@ class FileMonitorService {
       // Review existing notifications first to remove invalid ones
       await _notificationService.reviewNotifications(dir);
 
-      final files = dir
-          .listSync()
+      final files = await dir
+          .list()
           .where((entity) => entity is File && entity.path.endsWith('.md'))
-          .cast<File>();
+          .cast<File>()
+          .toList();
 
+      final today = _todayString();
       int scheduledCount = 0;
       for (final file in files) {
         final fileName = path.basename(file.path);
@@ -165,6 +215,7 @@ class FileMonitorService {
         if (dateMatch == null) continue;
 
         final date = dateMatch.group(1)!;
+        if (date.compareTo(today) < 0) continue;
         final content = await file.readAsString();
 
         if (content.isNotEmpty) {
@@ -192,14 +243,16 @@ class FileMonitorService {
       // Review existing notifications first to remove invalid ones
       await _notificationService.reviewNotifications(dir);
 
+      final today = _todayString();
       int scheduledCount = 0;
       for (final dailyFile in dailyFiles) {
+        if (dailyFile.date.compareTo(today) < 0) continue;
         if (dailyFile.content.isEmpty) continue;
 
-        // Track mtime so the polling loop won't think this file is "new".
+        // Track mtime so the change monitor won't think this file is "new".
         try {
           _lastModified[dailyFile.date] =
-              File(dailyFile.path).lastModifiedSync();
+              await File(dailyFile.path).lastModified();
         } catch (_) {}
 
         await _scheduleNotificationsForDate(dailyFile.date, dailyFile.content);
@@ -247,6 +300,9 @@ class FileMonitorService {
 
   void dispose() {
     _pollingTimer?.cancel();
+    _watchDebounceTimer?.cancel();
+    _watchSubscription?.cancel();
+    _watchSubscription = null;
     Log.i('📁 FileMonitorService: Disposed');
   }
 }

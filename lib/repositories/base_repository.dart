@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:planova/services/storage_service.dart';
 import 'package:planova/utils/logger.dart';
@@ -72,7 +73,7 @@ abstract class BaseRepository<T> {
       await _restoreCache();
     }
 
-    final files = storageService.listFiles(dir, recursive: recursive);
+    final files = await storageService.listFilesAsync(dir, recursive: recursive);
 
     if (forceReload) {
       cache.clear();
@@ -89,7 +90,7 @@ abstract class BaseRepository<T> {
         if (key == null) continue;
         seenKeys.add(key);
 
-        final currentMod = file.lastModifiedSync();
+        final currentMod = await file.lastModified();
         final cached = cache[key];
 
         if (cached != null &&
@@ -107,6 +108,8 @@ abstract class BaseRepository<T> {
       }
     }
 
+    final removedCount = cache.length -
+        cache.keys.where(seenKeys.contains).length;
     cache.removeWhere((k, _) => !seenKeys.contains(k));
     lastModified.removeWhere((k, _) => !seenKeys.contains(k));
 
@@ -121,7 +124,10 @@ abstract class BaseRepository<T> {
     Log.i(
         '$tag: Loaded ${allFiles.length} files (${cachedFiles.length} from cache, ${loadedFiles.length} newly loaded)');
 
-    await _persistCache();
+    // Only rewrite the disk cache when something actually changed.
+    if (loadedFiles.isNotEmpty || removedCount > 0 || forceReload) {
+      await _persistCache();
+    }
     return allFiles;
   }
 
@@ -134,7 +140,7 @@ abstract class BaseRepository<T> {
       return cache.values.toList()..sort(compare);
     }
 
-    final files = storageService.listFiles(dir, recursive: recursive);
+    final files = await storageService.listFilesAsync(dir, recursive: recursive);
     final modifiedFiles = <File>[];
     final seenKeys = <String>{};
 
@@ -144,7 +150,7 @@ abstract class BaseRepository<T> {
         if (key == null) continue;
         seenKeys.add(key);
 
-        final currentMod = file.lastModifiedSync();
+        final currentMod = await file.lastModified();
 
         if (lastModified[key] == null ||
             lastModified[key]!.isBefore(currentMod)) {
@@ -258,7 +264,10 @@ abstract class BaseRepository<T> {
             serializeItem(entry.value, lastModified[entry.key]);
       }
 
-      await cacheFile.writeAsString(jsonEncode(data));
+      // The cache holds the full content of every file — encoding it on the
+      // UI isolate janks frames once the history grows.
+      final encoded = await Isolate.run(() => jsonEncode(data));
+      await cacheFile.writeAsString(encoded);
       Log.d('$tag: Persisted ${cache.length} files to disk cache');
     } catch (e) {
       Log.e('❌ $tag: Error persisting cache', error: e);
@@ -270,11 +279,15 @@ abstract class BaseRepository<T> {
       final dir = storageService.orgDirectory;
       if (dir == null) return;
 
-      final cacheFile = File('${dir.path}/$cacheFileName');
-      if (!await cacheFile.exists()) return;
+      final cacheFilePath = '${dir.path}/$cacheFileName';
+      if (!await File(cacheFilePath).exists()) return;
 
-      final content = await cacheFile.readAsString();
-      final data = jsonDecode(content) as Map<String, dynamic>;
+      // Read + decode off the UI isolate; the result transfers back via
+      // Isolate.exit without a copy.
+      final data = await Isolate.run(() async {
+        final content = await File(cacheFilePath).readAsString();
+        return jsonDecode(content) as Map<String, dynamic>;
+      });
 
       if (data['version'] != 1) return;
 

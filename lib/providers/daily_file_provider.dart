@@ -95,10 +95,9 @@ class DailyFileProvider extends ChangeNotifier {
           await _dailyRepository.loadAll(forceReload: forceReload));
       Log.i('📅 DailyFileProvider: Loaded ${_dailyFiles.length} daily files');
 
-      // Update widget with today's content
-      await _updateWidget();
-
+      // Notify the UI first; the home-screen widget can follow.
       notifyListeners();
+      unawaited(_updateWidget());
     } catch (e) {
       Log.e('❌ DailyFileProvider: Error loading daily files', error: e);
       rethrow;
@@ -128,8 +127,10 @@ class DailyFileProvider extends ChangeNotifier {
         _upsertFile(todayFile);
       }
 
-      await _updateWidget();
+      // Notify the UI first; the home-screen widget update (disk read +
+      // platform channel) must not delay first paint.
       notifyListeners();
+      unawaited(_updateWidget());
       Log.i('📅 DailyFileProvider: Today-priority load complete');
     } catch (e) {
       Log.e('❌ DailyFileProvider: Error in today-priority load', error: e);
@@ -145,10 +146,8 @@ class DailyFileProvider extends ChangeNotifier {
       Log.i(
           '📅 DailyFileProvider: Incremental load completed, ${_dailyFiles.length} total files');
 
-      // Update widget with today's content
-      await _updateWidget();
-
       notifyListeners();
+      unawaited(_updateWidget());
     } catch (e) {
       Log.e('❌ DailyFileProvider: Error in incremental daily file load',
           error: e);
@@ -383,7 +382,9 @@ class DailyFileProvider extends ChangeNotifier {
     _widgetUpdateTimer = Timer.periodic(_widgetUpdateInterval, (timer) async {
       Log.d('📱 DailyFileProvider: Periodic widget update triggered');
       try {
-        await loadDailyFiles();
+        // Incremental: only re-reads files whose mtime changed, and skips
+        // the disk-cache rewrite when nothing did.
+        await loadDailyFilesIncremental();
         Log.d('📱 DailyFileProvider: Periodic widget update completed');
       } catch (e) {
         Log.e('❌ DailyFileProvider: Error in periodic widget update', error: e);

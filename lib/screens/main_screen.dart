@@ -10,6 +10,7 @@ import 'package:planova/screens/notes_view.dart';
 import 'package:planova/screens/preferences_screen.dart';
 import 'package:planova/services/file_monitor_service.dart';
 import 'package:planova/services/intent_handler_service.dart';
+import 'package:planova/services/notification_service.dart';
 import 'package:planova/utils/logger.dart';
 import 'package:provider/provider.dart';
 
@@ -91,9 +92,40 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       if (!mounted) return;
 
-      // 2. Start file-change polling (cheap). Notification scheduling for
-      //    existing events is deferred to the background phase below so it
-      //    doesn't block today's first paint.
+      // 2. Today-priority load: disk-cache restore + today refresh. The
+      //    calendar can paint with last-known content immediately after.
+      Log.i('🚀 MainScreen: Today-priority load...');
+      final dailyProvider = context.read<DailyFileProvider>();
+      await dailyProvider.loadTodayPriority();
+
+      if (!mounted) return;
+
+      // 3. Everything else — notifications, file monitor, full validation,
+      //    notes — runs in the background; no await on the critical path.
+      unawaited(_runBackgroundStartupTasks(directoryProvider));
+
+      Log.i('🚀 MainScreen: Critical-path initialization complete');
+    } catch (e) {
+      Log.e('❌ MainScreen: Error initializing providers', error: e);
+      rethrow;
+    }
+  }
+
+  Future<void> _runBackgroundStartupTasks(
+      DirectoryProvider directoryProvider) async {
+    try {
+      final dailyProvider = context.read<DailyFileProvider>();
+      final noteProvider = context.read<NoteFileProvider>();
+
+      // Notification plugin init + permission request — deliberately after
+      // first paint (platform channels + possible system dialog).
+      final notificationService = NotificationService();
+      await notificationService.initialize();
+      await notificationService.requestPermissions();
+
+      if (!mounted) return;
+
+      // Start file-change monitoring.
       final dailiesDirectory = directoryProvider.dailiesDirectory;
       if (dailiesDirectory != null) {
         await FileMonitorService().initialize(dailiesDirectory);
@@ -103,30 +135,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       }
 
       if (!mounted) return;
-
-      // 3. Today-priority load: disk-cache restore + today refresh. The
-      //    calendar can paint with last-known content immediately after.
-      Log.i('🚀 MainScreen: Today-priority load...');
-      final dailyProvider = context.read<DailyFileProvider>();
-      await dailyProvider.loadTodayPriority();
-
-      if (!mounted) return;
-
-      // 4. Everything else runs in the background — no await on the
-      //    critical path.
-      unawaited(_runBackgroundStartupTasks());
-
-      Log.i('🚀 MainScreen: Critical-path initialization complete');
-    } catch (e) {
-      Log.e('❌ MainScreen: Error initializing providers', error: e);
-      rethrow;
-    }
-  }
-
-  Future<void> _runBackgroundStartupTasks() async {
-    try {
-      final dailyProvider = context.read<DailyFileProvider>();
-      final noteProvider = context.read<NoteFileProvider>();
 
       // Full mtime sweep + reload of stale daily files.
       Log.i('🚀 MainScreen: Background — full daily file validation...');

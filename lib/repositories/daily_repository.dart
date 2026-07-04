@@ -103,7 +103,7 @@ class DailyRepository extends BaseRepository<DailyFile> {
     final dailyFile = await loadSingleFile(file);
     if (dailyFile != null) {
       cache[date] = dailyFile;
-      lastModified[date] = file.lastModifiedSync();
+      lastModified[date] = await file.lastModified();
     }
     return dailyFile;
   }

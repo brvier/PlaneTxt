@@ -98,6 +98,18 @@ class StorageService {
         .toList();
   }
 
+  /// Async variant of [listFiles] — doesn't block the UI isolate on
+  /// directory I/O.
+  Future<List<File>> listFilesAsync(Directory dir,
+      {String extension = '.md', bool recursive = false}) async {
+    if (!await dir.exists()) return [];
+    return dir
+        .list(recursive: recursive)
+        .where((entity) => entity is File && entity.path.endsWith(extension))
+        .cast<File>()
+        .toList();
+  }
+
   /// Read file content
   Future<String> readFile(File file) async {
     try {

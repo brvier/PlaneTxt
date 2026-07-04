@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.1] - 2026-07-04
+
+### Changed
+- Add builtInKotlin and newDsl Gradle flags (Flutter migrator)
+
 ## [1.3.0] - 2026-07-04
 
 ### Added

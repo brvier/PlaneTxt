@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0] - 2026-07-04
+
+### Added
+- Today-priority startup load with per-file parse caching
+- Adaptive launcher icons (Android)
+- Native file-system watching for daily files (inotify), with polling fallback
+
+### Changed
+- Faster startup: notification init and permission request deferred after first paint
+- Theme and settings load synchronously (no more loading spinner)
+- Disk cache JSON encoding/decoding moved off the UI isolate
+- File scanning uses async I/O instead of blocking sync calls
+- Event notifications are only scheduled for today and future dates
+- Refactor daily content helpers
+- Upgrade Flutter plugins (file_picker 12, flutter_local_notifications 21, flutter_timezone 5, device_info_plus 13, home_widget 0.9, timezone 0.11, package_info_plus 10)
+
 ## [1.2.0] - 2026-04-27
 
 ### Added

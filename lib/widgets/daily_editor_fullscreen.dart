@@ -4,8 +4,8 @@ import 'package:planova/widgets/markdown_editor.dart';
 class DailyEditorFullscreen extends StatefulWidget {
   final String date;
   final String initialContent;
-  final Function(String) onSave;
-  final Function(String)? onAutoSave;
+  final Future<void> Function(String) onSave;
+  final Future<void> Function(String)? onAutoSave;
 
   const DailyEditorFullscreen({
     super.key,

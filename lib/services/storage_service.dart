@@ -121,13 +121,21 @@ class StorageService {
     }
   }
 
-  /// Write content to file
+  /// Write content to file atomically: write to a temp file in the same
+  /// directory, flush, then rename over the target. A crash mid-write can
+  /// never leave a truncated file behind — the user's plaintext files ARE
+  /// the data.
   Future<void> writeFile(File file, String content) async {
+    final tempFile = File('${file.path}.tmp');
     try {
-      await file.writeAsString(content);
+      await tempFile.writeAsString(content, flush: true);
+      await tempFile.rename(file.path);
       Log.d('💾 StorageService: Saved file ${file.path}');
     } catch (e) {
       Log.e('❌ StorageService: Error writing file ${file.path}', error: e);
+      try {
+        if (await tempFile.exists()) await tempFile.delete();
+      } catch (_) {}
       rethrow;
     }
   }
@@ -279,7 +287,7 @@ class StorageService {
 
       switch (operation.type) {
         case FileOperationType.write:
-          await file.writeAsString(operation.content ?? '');
+          await writeFile(file, operation.content ?? '');
           break;
         case FileOperationType.delete:
           if (file.existsSync()) {

@@ -16,12 +16,19 @@ class NoteFileProvider extends ChangeNotifier {
   Timer? _widgetUpdateTimer;
   static const Duration _widgetUpdateInterval = Duration(minutes: 30);
 
+  // Debounces the home-screen widget push during autosave bursts (500ms).
+  Timer? _postSaveWidgetTimer;
+  static const Duration _postSaveDebounce = Duration(seconds: 2);
+
   NoteFileProvider() {
     Log.i('🚀 NoteFileProvider: Constructor called');
     _noteRepository = NoteRepository(_storageService);
   }
 
   List<NoteFile> get noteFiles => List.unmodifiable(_noteFiles);
+
+  /// Persist the repository disk cache now (e.g. when the app is paused).
+  Future<void> persistCache() => _noteRepository.persistCache();
 
   Future<void> loadNoteFiles({bool forceReload = false}) async {
     Log.i(
@@ -62,10 +69,24 @@ class NoteFileProvider extends ChangeNotifier {
   Future<void> saveNoteFile(String relativePath, String content) async {
     try {
       Log.d('📝 NoteFileProvider: Saving note file $relativePath');
-      await _noteRepository.create(relativePath, content);
+      final saved = await _noteRepository.create(relativePath, content);
 
-      // Reload notes to ensure correct order and metadata
-      await loadNoteFiles();
+      // Upsert into the in-memory list instead of re-scanning the whole
+      // notes directory — this runs on every 500ms autosave. The list is
+      // sorted newest-first, and the note just saved is the newest.
+      _noteFiles = [
+        saved,
+        ..._noteFiles.where((n) => n.relativePath != saved.relativePath),
+      ];
+      notifyListeners();
+
+      _postSaveWidgetTimer?.cancel();
+      _postSaveWidgetTimer = Timer(_postSaveDebounce, () {
+        unawaited(_updateWidget());
+        // Flush the disk cache so a process kill doesn't lose this save
+        // from the next startup's fast-paint restore.
+        unawaited(_noteRepository.persistCache());
+      });
 
       Log.d('📝 NoteFileProvider: Saved note file $relativePath');
     } catch (e) {
@@ -181,6 +202,8 @@ class NoteFileProvider extends ChangeNotifier {
   void dispose() {
     _widgetUpdateTimer?.cancel();
     _widgetUpdateTimer = null;
+    _postSaveWidgetTimer?.cancel();
+    _postSaveWidgetTimer = null;
     Log.i('📝 NoteFileProvider: Disposed');
     super.dispose();
   }

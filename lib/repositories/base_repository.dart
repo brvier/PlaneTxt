@@ -194,6 +194,11 @@ abstract class BaseRepository<T> {
     return cache.values.toList()..sort(compare);
   }
 
+  /// Persist the in-memory cache to disk now. Call after user edits: the
+  /// startup fast path ([restoreFromDiskCache]) paints from this file, so a
+  /// process kill before the next full scan must not lose the latest saves.
+  Future<void> persistCache() => _persistCache();
+
   int get cacheSize => cache.length;
 
   void clearCache() {

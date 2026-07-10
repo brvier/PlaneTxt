@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- **Data loss on Android restart**: the startup disk cache is now flushed after every save (debounced) and when the app goes to background, so edits to past days survive a process kill; the editor and day selection re-read files from disk before use, so a stale cache can no longer overwrite newer file content
+- Atomic file writes (temp file + rename) — a crash mid-write can no longer truncate a markdown file
+- Repository cache revalidates file mtime, so edits made by external tools are picked up instead of being silently overwritten on the next save
+- File monitor notifies the UI of external changes and deletions (including past dates), not only the notification scheduler
+- "Saved" confirmation is now only shown after the write actually succeeded; save/autosave failures show an error and keep the content marked as unsaved
+- ICS import: UTC timestamps (`...Z`) are now correctly converted to local time
+- ICS import: merging events into a day no longer drops the day's existing events
+
+### Changed
+- Refill dialog now offers undone todos from all previous days (was limited to the last 30), sorted from most recent to oldest
+- Calendar cells and daily sections use the provider's memoised parse cache instead of re-parsing markdown on every rebuild
+- Event notifications and home-widget updates are debounced after saves instead of running on every 500ms autosave
+- Saving a note updates the list in memory instead of re-scanning the whole notes directory
+
+### Added
+- Unit tests for markdown parser, ICS parser, daily content helpers and storage service
+- GitHub Actions CI (analyze + tests)
+
+### Removed
+- Dead code: unused FileProvider, EventProvider and embedded DailyEditor
+
 ## [1.3.1] - 2026-07-04
 
 ### Changed

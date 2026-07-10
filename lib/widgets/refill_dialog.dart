@@ -40,7 +40,7 @@ class _RefillDialogState extends State<RefillDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Found ${widget.undoneTodos.length} undone todos from the last 30 days:',
+              'Found ${widget.undoneTodos.length} undone todos from previous days:',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),

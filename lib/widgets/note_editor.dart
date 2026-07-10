@@ -4,8 +4,8 @@ import 'package:planova/widgets/markdown_editor.dart';
 
 class NoteEditor extends StatefulWidget {
   final NoteFile note;
-  final Function(String) onSave;
-  final Function(String)? onAutoSave;
+  final Future<void> Function(String) onSave;
+  final Future<void> Function(String)? onAutoSave;
 
   const NoteEditor({
     super.key,

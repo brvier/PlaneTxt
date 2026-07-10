@@ -80,15 +80,15 @@ class DailyRepository extends BaseRepository<DailyFile> {
   /// Get daily file by date from cache.
   DailyFile? getByDate(String date) => cache[date];
 
-  /// Check if a daily file exists on disk for the given date and load it.
+  /// Load the daily file for [date], revalidating the cache against the
+  /// file's mtime. The plaintext files can be edited by external tools at
+  /// any time — returning a stale cache entry here would make the next save
+  /// silently overwrite those edits.
   Future<DailyFile?> loadByDate(String date) async {
-    final cached = cache[date];
-    if (cached != null) return cached;
-
     final dir = directory;
     if (dir == null) {
       Log.e('❌ DailyRepository: Dailies directory not initialized');
-      return null;
+      return cache[date];
     }
 
     final filePath = path.join(dir.path, '$date.md');
@@ -96,14 +96,23 @@ class DailyRepository extends BaseRepository<DailyFile> {
 
     if (!await file.exists()) {
       Log.d('📅 DailyRepository: No file exists for date $date');
+      cache.remove(date);
+      lastModified.remove(date);
       return null;
+    }
+
+    final currentMod = await file.lastModified();
+    final cached = cache[date];
+    final cachedMod = lastModified[date];
+    if (cached != null && cachedMod != null && !cachedMod.isBefore(currentMod)) {
+      return cached;
     }
 
     Log.i('📅 DailyRepository: Loading daily file for $date from disk');
     final dailyFile = await loadSingleFile(file);
     if (dailyFile != null) {
       cache[date] = dailyFile;
-      lastModified[date] = await file.lastModified();
+      lastModified[date] = currentMod;
     }
     return dailyFile;
   }
@@ -114,6 +123,10 @@ class DailyRepository extends BaseRepository<DailyFile> {
       final file = File(dailyFile.path);
       await storageService.writeFile(file, dailyFile.content);
       cache[dailyFile.date] = dailyFile;
+      // Record the new mtime so loadByDate doesn't re-read our own write.
+      try {
+        lastModified[dailyFile.date] = await file.lastModified();
+      } catch (_) {}
       Log.d('📅 DailyRepository: Saved daily file for ${dailyFile.date}');
     } catch (e) {
       Log.e('❌ DailyRepository: Error saving daily file', error: e);

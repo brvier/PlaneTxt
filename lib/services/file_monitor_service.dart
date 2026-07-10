@@ -28,6 +28,11 @@ class FileMonitorService {
   final Map<String, DateTime> _recentlyScheduledDates = {};
   static const Duration _debounceWindow = Duration(seconds: 10);
 
+  /// Called whenever a daily file changes (or is deleted) on disk, so the
+  /// provider can refresh its in-memory copy — external edits must reach
+  /// the UI, not only the notification scheduler.
+  void Function(String date)? onDailyFileChanged;
+
   Future<void> initialize(Directory dailiesDirectory) async {
     _dailiesDirectory = dailiesDirectory;
 
@@ -129,14 +134,18 @@ class FileMonitorService {
 
         final date = dateMatch.group(1)!;
         existingDates.add(date);
-        // Past dates can't produce notifications — don't track or handle them.
-        if (date.compareTo(today) < 0) continue;
         final lastModified = await file.lastModified();
 
-        // Check if file was modified since last check
-        if (_lastModified[date] == null ||
-            _lastModified[date]!.isBefore(lastModified)) {
+        final previous = _lastModified[date];
+        if (previous == null || previous.isBefore(lastModified)) {
           _lastModified[date] = lastModified;
+          if (date.compareTo(today) < 0) {
+            // Past dates can't produce notifications, but a mtime bump on
+            // an already-tracked file is an external edit the UI must see.
+            // (First sighting is just bookkeeping.)
+            if (previous != null) onDailyFileChanged?.call(date);
+            continue;
+          }
           await _handleFileChange(date, file.path);
         }
       }
@@ -147,6 +156,7 @@ class FileMonitorService {
           .toList();
       for (final date in datesToRemove) {
         _lastModified.remove(date);
+        onDailyFileChanged?.call(date);
         // Cancel notifications for deleted files
         await _notificationService.cancelNotificationsForDate(date);
         Log.i(
@@ -165,6 +175,10 @@ class FileMonitorService {
 
   Future<void> _handleFileChange(String date, String filePath) async {
     try {
+      // Let the provider refresh its in-memory copy regardless of the
+      // notification debounce — for its own writes this is a cheap no-op.
+      onDailyFileChanged?.call(date);
+
       // Skip if DailyFileProvider just scheduled notifications for this date
       final recentTime = _recentlyScheduledDates[date];
       if (recentTime != null &&

@@ -126,12 +126,7 @@ class TasksSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dailyFile = dailyFileProvider.getDailyFileFromCache(dateString);
-    if (dailyFile == null || dailyFile.content.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final tasks = MarkdownParser.parseTasks(dailyFile.content);
+    final tasks = dailyFileProvider.getTasks(dateString);
     if (tasks.isEmpty) return const SizedBox.shrink();
 
     return _SectionContainer(
@@ -189,12 +184,7 @@ class NotesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dailyFile = dailyFileProvider.getDailyFileFromCache(dateString);
-    if (dailyFile == null || dailyFile.content.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final notes = MarkdownParser.parseNotes(dailyFile.content);
+    final notes = dailyFileProvider.getNotes(dateString);
     if (notes.isEmpty) return const SizedBox.shrink();
 
     return _SectionContainer(

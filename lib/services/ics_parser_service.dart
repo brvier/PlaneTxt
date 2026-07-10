@@ -164,7 +164,7 @@ class IcsParserService {
     final second = int.parse(cleanDateTime.substring(13, 15));
 
     // Convert from UTC to local time
-    return DateTime(year, month, day, hour, minute, second).toLocal();
+    return DateTime.utc(year, month, day, hour, minute, second).toLocal();
   }
 
   /// Parse local datetime

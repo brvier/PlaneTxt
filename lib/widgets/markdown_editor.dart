@@ -10,8 +10,8 @@ enum EditorMode {
 
 class MarkdownEditor extends StatefulWidget {
   final String initialContent;
-  final Function(String) onSave;
-  final Function(String)? onAutoSave;
+  final Future<void> Function(String) onSave;
+  final Future<void> Function(String)? onAutoSave;
   final String title;
   final String hintText;
   final EditorMode mode;
@@ -45,6 +45,8 @@ class MarkdownEditorState extends State<MarkdownEditor> {
   bool _hasChanges = false;
   Timer? _autoSaveTimer;
   String _savedContent = '';
+  bool _autoSaveErrorShown = false;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -63,15 +65,34 @@ class MarkdownEditorState extends State<MarkdownEditor> {
     _autoSaveTimer?.cancel();
 
     // Start new timer for autosave
-    _autoSaveTimer = Timer(const Duration(milliseconds: 500), () {
-      if (widget.onAutoSave != null && _hasChanges) {
-        widget.onAutoSave!(_controller.text);
-        // Update the saved content to reflect the saved state
-        setState(() {
-          _savedContent = _controller.text;
-          _hasChanges = false;
-        });
+    _autoSaveTimer = Timer(const Duration(milliseconds: 500), _autoSave);
+  }
+
+  Future<void> _autoSave() async {
+    if (widget.onAutoSave == null || !_hasChanges) return;
+    final content = _controller.text;
+    try {
+      await widget.onAutoSave!(content);
+    } catch (e) {
+      // Keep _hasChanges true so the Save button stays visible and the
+      // content isn't considered persisted.
+      if (mounted && !_autoSaveErrorShown) {
+        _autoSaveErrorShown = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Autosave failed: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
       }
+      return;
+    }
+    _autoSaveErrorShown = false;
+    if (!mounted) return;
+    setState(() {
+      _savedContent = content;
+      // The user may have kept typing while the save was in flight.
+      _hasChanges = _controller.text != _savedContent;
     });
   }
 
@@ -83,9 +104,8 @@ class MarkdownEditorState extends State<MarkdownEditor> {
   }
 
   void saveBeforeSwitch() {
-    if (_hasChanges && widget.onAutoSave != null) {
-      widget.onAutoSave!(_controller.text);
-    }
+    _autoSaveTimer?.cancel();
+    unawaited(_autoSave());
   }
 
   @override
@@ -228,13 +248,31 @@ class MarkdownEditorState extends State<MarkdownEditor> {
     }
   }
 
-  void _saveContent() {
-    widget.onSave(_controller.text);
+  Future<void> _saveContent() async {
+    if (_saving) return;
+    _saving = true;
+    final content = _controller.text;
+    try {
+      await widget.onSave(content);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Save failed: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+      return;
+    } finally {
+      _saving = false;
+    }
+    if (!mounted) return;
     setState(() {
-      _savedContent = _controller.text;
-      _hasChanges = false;
+      _savedContent = content;
+      _hasChanges = _controller.text != _savedContent;
     });
-    if (widget.mode == EditorMode.fullscreen && mounted) {
+    if (widget.mode == EditorMode.fullscreen) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(widget.saveSuccessMessage ?? 'Content saved')),
       );

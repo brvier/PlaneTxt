@@ -18,7 +18,8 @@ class _ParsedDaily {
   final int contentHash;
   final List<TaskItem> tasks;
   final List<CalendarEvent> events; // sorted by time
-  _ParsedDaily(this.contentHash, this.tasks, this.events);
+  final List<String> notes;
+  _ParsedDaily(this.contentHash, this.tasks, this.events, this.notes);
 }
 
 class DailyFileProvider extends ChangeNotifier {
@@ -35,9 +36,16 @@ class DailyFileProvider extends ChangeNotifier {
   Timer? _widgetUpdateTimer;
   static const Duration _widgetUpdateInterval = Duration(minutes: 30);
 
+  // Debounce for post-save side work (notifications + home-screen widget):
+  // autosave fires every 500ms while typing, but rescheduling notifications
+  // and pushing the widget only needs to happen once the burst settles.
+  final Map<String, Timer> _postSaveTimers = {};
+  static const Duration _postSaveDebounce = Duration(seconds: 2);
+
   DailyFileProvider() {
     Log.i('🚀 DailyFileProvider: Constructor called');
     _dailyRepository = DailyRepository(_storageService);
+    FileMonitorService().onDailyFileChanged = _onExternalFileChanged;
   }
 
   List<DailyFile> get dailyFiles => List.unmodifiable(_dailyFiles);
@@ -82,9 +90,38 @@ class DailyFileProvider extends ChangeNotifier {
     final tasks = MarkdownParser.parseTasks(file.content);
     final events = MarkdownParser.parseEvents(date, file.content)
       ..sort((a, b) => a.time.compareTo(b.time));
-    final parsed = _ParsedDaily(hash, tasks, events);
+    final notes = MarkdownParser.parseNotes(file.content);
+    final parsed = _ParsedDaily(hash, tasks, events, notes);
     _parseCache[date] = parsed;
     return parsed;
+  }
+
+  /// Re-read one date from disk after an external change and update the UI.
+  void _onExternalFileChanged(String date) {
+    unawaited(() async {
+      try {
+        final fromDisk = await _dailyRepository.loadByDate(date);
+        final existing = _byDate[date];
+        if (fromDisk != null) {
+          if (existing == null || existing.content != fromDisk.content) {
+            Log.i(
+                '📅 DailyFileProvider: External change detected for $date, refreshing');
+            _upsertFile(fromDisk);
+            notifyListeners();
+          }
+        } else if (existing != null) {
+          Log.i(
+              '📅 DailyFileProvider: Daily file for $date deleted externally');
+          _byDate.remove(date);
+          _parseCache.remove(date);
+          _dailyFiles = _dailyFiles.where((f) => f.date != date).toList();
+          notifyListeners();
+        }
+      } catch (e) {
+        Log.e('❌ DailyFileProvider: Error refreshing $date after change',
+            error: e);
+      }
+    }());
   }
 
   Future<void> loadDailyFiles({bool forceReload = false}) async {
@@ -240,14 +277,20 @@ class DailyFileProvider extends ChangeNotifier {
 
       _upsertFile(dailyFile);
 
-      // Update widget with today's content
-      await _updateWidget();
-
       // Tell FileMonitorService to skip this date (avoid cancel+reschedule race)
       FileMonitorService().markRecentlyScheduled(date);
 
-      // Schedule event notifications directly (no context dependency)
-      await _scheduleEventNotifications(date, content);
+      // Notifications + widget update are debounced: while the user types
+      // (autosave every 500ms) only the last save of the burst triggers them.
+      _postSaveTimers[date]?.cancel();
+      _postSaveTimers[date] = Timer(_postSaveDebounce, () {
+        _postSaveTimers.remove(date);
+        unawaited(_scheduleEventNotifications(date, content));
+        unawaited(_updateWidget());
+        // Flush the disk cache: the startup fast path restores from it, and
+        // on Android the process is often killed before the next full scan.
+        unawaited(_dailyRepository.persistCache());
+      });
 
       Log.d('📅 DailyFileProvider: Saved daily file for $date');
       notifyListeners();
@@ -295,13 +338,21 @@ class DailyFileProvider extends ChangeNotifier {
   /// Get daily file from memory cache only (fast, may be stale)
   DailyFile? getDailyFileFromCache(String date) => _byDate[date];
 
+  /// Persist the repository disk cache now (e.g. when the app is paused).
+  Future<void> persistCache() => _dailyRepository.persistCache();
+
   /// Get daily file, always checking disk for latest version
   /// Use this when you need to ensure you have the most recent data
   Future<DailyFile?> getDailyFile(String date) async {
     final fromDisk = await _dailyRepository.loadByDate(date);
     if (fromDisk != null) {
+      final existing = _byDate[date];
+      final changed = existing == null || existing.content != fromDisk.content;
       _upsertFile(fromDisk);
-      Log.d('📅 DailyFileProvider: Loaded daily file for $date from disk');
+      if (changed) {
+        Log.d('📅 DailyFileProvider: Loaded daily file for $date from disk');
+        notifyListeners();
+      }
       return fromDisk;
     }
     return null;
@@ -327,6 +378,12 @@ class DailyFileProvider extends ChangeNotifier {
 
   int getUndoneTodoCount(String date) =>
       _getParsed(date)?.tasks.where((t) => !t.isCompleted).length ?? 0;
+
+  /// Memoised tasks for a date — cheap to call from build methods.
+  List<TaskItem> getTasks(String date) => _getParsed(date)?.tasks ?? const [];
+
+  /// Memoised free-text notes for a date — cheap to call from build methods.
+  List<String> getNotes(String date) => _getParsed(date)?.notes ?? const [];
 
   List<CalendarEvent> getCalendarEvents(String date) =>
       _getParsed(date)?.events ?? const [];
@@ -398,6 +455,13 @@ class DailyFileProvider extends ChangeNotifier {
   void dispose() {
     _widgetUpdateTimer?.cancel();
     _widgetUpdateTimer = null;
+    for (final timer in _postSaveTimers.values) {
+      timer.cancel();
+    }
+    _postSaveTimers.clear();
+    if (FileMonitorService().onDailyFileChanged == _onExternalFileChanged) {
+      FileMonitorService().onDailyFileChanged = null;
+    }
     Log.i('📅 DailyFileProvider: Disposed');
     super.dispose();
   }

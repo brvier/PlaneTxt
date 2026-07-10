@@ -130,11 +130,15 @@ class DailyContentHelper {
             eventsBlock.where((l) => _isEventLine(l.trim())).toList();
         final newOnly = sortedNew.where((newE) => !existingEvents.any((e) =>
             _eventsAreSame(e.trim(), newE)));
+        // Existing events must be re-inserted alongside the new ones —
+        // they were stripped from eventsBlock above.
+        final merged = _sortEventLinesChronologically(
+            [...existingEvents, ...newOnly]);
 
         return [
           ...beforeEvents,
           ...eventsBlock.where((l) => !_isEventLine(l.trim())),
-          ...newOnly,
+          ...merged,
           if (afterEventsSection.isNotEmpty) ...afterEventsSection,
         ].join('\n');
       }

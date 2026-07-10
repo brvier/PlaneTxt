@@ -147,17 +147,12 @@ class _NotesViewState extends State<NotesView> {
       MaterialPageRoute(
         builder: (context) => NoteEditor(
           note: note,
-          onSave: (content) {
-            context
-                .read<NoteFileProvider>()
-                .saveNoteFile(note.relativePath, content);
-          },
-          onAutoSave: (content) {
-            context
-                .read<NoteFileProvider>()
-                .saveNoteFile(note.relativePath, content);
-            // Don't show snackbar for autosave
-          },
+          onSave: (content) => context
+              .read<NoteFileProvider>()
+              .saveNoteFile(note.relativePath, content),
+          onAutoSave: (content) => context
+              .read<NoteFileProvider>()
+              .saveNoteFile(note.relativePath, content),
         ),
       ),
     );

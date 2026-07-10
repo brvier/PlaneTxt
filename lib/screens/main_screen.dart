@@ -48,6 +48,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused) {
+      // The OS may kill the process while backgrounded; flush the disk
+      // caches so the next cold start restores the latest saves.
+      unawaited(context.read<DailyFileProvider>().persistCache());
+      unawaited(context.read<NoteFileProvider>().persistCache());
+    }
     if (state == AppLifecycleState.resumed) {
       // Check if date changed while app was in background
       context.read<DailyFileProvider>().checkDateChangeAndUpdateWidget();

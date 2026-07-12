@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.3.2] - 2026-07-13
 
 ### Fixed
 - **Data loss on Android restart**: the startup disk cache is now flushed after every save (debounced) and when the app goes to background, so edits to past days survive a process kill; the editor and day selection re-read files from disk before use, so a stale cache can no longer overwrite newer file content
@@ -12,6 +12,7 @@
 - ICS import: merging events into a day no longer drops the day's existing events
 
 ### Changed
+- Release builds are signed with a dedicated upload key via key.properties (Play Store)
 - Refill dialog now offers undone todos from all previous days (was limited to the last 30), sorted from most recent to oldest
 - Calendar cells and daily sections use the provider's memoised parse cache instead of re-parsing markdown on every rebuild
 - Event notifications and home-widget updates are debounced after saves instead of running on every 500ms autosave

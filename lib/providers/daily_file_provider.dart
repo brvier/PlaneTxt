@@ -51,6 +51,15 @@ class DailyFileProvider extends ChangeNotifier {
   List<DailyFile> get dailyFiles => List.unmodifiable(_dailyFiles);
   String get selectedDate => _selectedDate;
 
+  // First full scan reads every daily file (slow on large folders and SAF
+  // trees) - exposed so the UI can show a "building cache" indicator.
+  bool _isBuildingCache = false;
+  int _cacheProgressDone = 0;
+  int _cacheProgressTotal = 0;
+  bool get isBuildingCache => _isBuildingCache;
+  int get cacheProgressDone => _cacheProgressDone;
+  int get cacheProgressTotal => _cacheProgressTotal;
+
   // -- internal index/cache management ---------------------------------------
 
   void _replaceAllFiles(List<DailyFile> files) {
@@ -127,9 +136,26 @@ class DailyFileProvider extends ChangeNotifier {
   Future<void> loadDailyFiles({bool forceReload = false}) async {
     Log.i(
         '📅 DailyFileProvider: Loading daily files (forceReload: $forceReload)...');
+    // No disk cache to restore from (first run, or storage location just
+    // changed): every file gets read, which can take a while - surface it.
+    final buildingCache = _dailyRepository.cacheSize == 0 || forceReload;
+    if (buildingCache) {
+      _isBuildingCache = true;
+      _cacheProgressDone = 0;
+      _cacheProgressTotal = 0;
+      notifyListeners();
+    }
     try {
-      _replaceAllFiles(
-          await _dailyRepository.loadAll(forceReload: forceReload));
+      _replaceAllFiles(await _dailyRepository.loadAll(
+        forceReload: forceReload,
+        onProgress: buildingCache
+            ? (done, total) {
+                _cacheProgressDone = done;
+                _cacheProgressTotal = total;
+                notifyListeners();
+              }
+            : null,
+      ));
       Log.i('📅 DailyFileProvider: Loaded ${_dailyFiles.length} daily files');
 
       // Notify the UI first; the home-screen widget can follow.
@@ -138,6 +164,11 @@ class DailyFileProvider extends ChangeNotifier {
     } catch (e) {
       Log.e('❌ DailyFileProvider: Error loading daily files', error: e);
       rethrow;
+    } finally {
+      if (buildingCache) {
+        _isBuildingCache = false;
+        notifyListeners();
+      }
     }
   }
 

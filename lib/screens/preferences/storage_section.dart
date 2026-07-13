@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:planova/providers/daily_file_provider.dart';
 import 'package:planova/providers/directory_provider.dart';
+import 'package:planova/providers/note_file_provider.dart';
 import 'package:planova/providers/theme_provider.dart';
 import 'package:planova/services/file_monitor_service.dart';
 import 'package:planova/services/file_store/saf_file_store.dart';
@@ -224,5 +227,13 @@ class StorageSection extends StatelessWidget {
     // Re-attach the file monitor to the new root (watch vs polling may
     // differ between io and SAF roots).
     await FileMonitorService().reinitialize();
+    if (!context.mounted) return;
+    // Force-reload from the new root; the in-memory and disk caches still
+    // hold the previous folder's content. Runs in the background - the
+    // "building cache" banner covers the wait.
+    final dailyProvider = context.read<DailyFileProvider>();
+    final noteProvider = context.read<NoteFileProvider>();
+    unawaited(dailyProvider.loadDailyFiles(forceReload: true));
+    unawaited(noteProvider.loadNoteFiles(forceReload: true));
   }
 }

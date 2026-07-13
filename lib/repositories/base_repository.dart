@@ -62,7 +62,14 @@ abstract class BaseRepository<T> {
 
   // --- public API -----------------------------------------------------------
 
-  Future<List<T>> loadAll({bool forceReload = false}) async {
+  /// [onProgress] is called after each loaded batch with
+  /// `(filesLoaded, filesToLoad)` - lets the UI show a "building cache"
+  /// indicator on the first full scan, which reads every file (slow on
+  /// large folders and SAF trees).
+  Future<List<T>> loadAll({
+    bool forceReload = false,
+    void Function(int done, int total)? onProgress,
+  }) async {
     Log.d('$tag: Loading all files (forceReload: $forceReload)...');
 
     final store = storageService.store;
@@ -111,7 +118,8 @@ abstract class BaseRepository<T> {
     cache.removeWhere((k, _) => !seenKeys.contains(k));
     lastModified.removeWhere((k, _) => !seenKeys.contains(k));
 
-    final loadedItems = await _loadEntriesParallel(entriesToLoad);
+    final loadedItems =
+        await _loadEntriesParallel(entriesToLoad, onProgress: onProgress);
 
     for (final item in loadedItems) {
       cache[fileKey(item)] = item;
@@ -204,7 +212,10 @@ abstract class BaseRepository<T> {
 
   // --- parallel loading -----------------------------------------------------
 
-  Future<List<T>> _loadEntriesParallel(List<StoreEntry> entries) async {
+  Future<List<T>> _loadEntriesParallel(
+    List<StoreEntry> entries, {
+    void Function(int done, int total)? onProgress,
+  }) async {
     if (entries.isEmpty) return [];
 
     Log.d('$tag: Loading ${entries.length} files in parallel...');
@@ -213,14 +224,17 @@ abstract class BaseRepository<T> {
     try {
       final loaded = <T>[];
       const batchSize = 20;
+      var done = 0;
 
       for (var i = 0; i < entries.length; i += batchSize) {
-        final batch = entries.skip(i).take(batchSize);
+        final batch = entries.skip(i).take(batchSize).toList();
         final futures = batch.map((e) => loadSingleEntry(e));
         final results = await Future.wait(futures);
         for (final r in results) {
           if (r != null) loaded.add(r);
         }
+        done += batch.length;
+        onProgress?.call(done, entries.length);
       }
 
       sw.stop();

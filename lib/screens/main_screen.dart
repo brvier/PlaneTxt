@@ -228,6 +228,44 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Thin banner shown while the app reads every file to build its cache
+  /// (first launch, or right after the storage folder changed). The full
+  /// scan runs in the background; without this the app just looks slow.
+  Widget _buildCacheBanner(BuildContext context) {
+    final daily = context.watch<DailyFileProvider>();
+    final notes = context.watch<NoteFileProvider>();
+    if (!daily.isBuildingCache && !notes.isBuildingCache) {
+      return const SizedBox.shrink();
+    }
+
+    final done = daily.cacheProgressDone + notes.cacheProgressDone;
+    final total = daily.cacheProgressTotal + notes.cacheProgressTotal;
+    final label = total > 0
+        ? 'Building cache... $done/$total files'
+        : 'Building cache...';
+
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 6),
+            LinearProgressIndicator(
+              value: total > 0 ? done / total : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -235,7 +273,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         preferredSize: const Size.fromHeight(0.0),
         child: AppBar(),
       ),
-      body: _screens[_currentIndex],
+      body: Column(
+        children: [
+          _buildCacheBanner(context),
+          Expanded(child: _screens[_currentIndex]),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {

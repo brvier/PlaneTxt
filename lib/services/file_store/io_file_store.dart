@@ -7,7 +7,7 @@ import 'package:planova/utils/logger.dart';
 ///
 /// Used for the default app-private storage root on all platforms, and for
 /// user-selected raw paths on desktop.
-class IoFileStore implements FileStore {
+class IoFileStore extends FileStore {
   final Directory root;
 
   IoFileStore(this.root);

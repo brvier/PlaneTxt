@@ -257,20 +257,28 @@ class FileMonitorService {
       Log.i(
           '📁 FileMonitorService: Scheduling notifications from ${dailyFiles.length} cached daily files...');
 
-      // Review existing notifications first to remove invalid ones
-      await _notificationService.reviewNotifications();
+      // Review existing notifications against the already-loaded content -
+      // no filesystem reads needed.
+      await _notificationService.reviewNotifications(
+          contentByDate: {for (final f in dailyFiles) f.date: f.content});
+
+      // Seed known mtimes with a single directory listing (a per-file stat
+      // is a full directory scan on SAF), so the change monitor won't treat
+      // every existing file as "new" on its first poll.
+      try {
+        final entries = await store.list(StorageService.dailiesDirName);
+        for (final entry in entries) {
+          final dateMatch = _datePattern.firstMatch(entry.relPath);
+          if (dateMatch == null || entry.modified == null) continue;
+          _lastModified[dateMatch.group(1)!] = entry.modified!;
+        }
+      } catch (_) {}
 
       final today = _todayString();
       int scheduledCount = 0;
       for (final dailyFile in dailyFiles) {
         if (dailyFile.date.compareTo(today) < 0) continue;
         if (dailyFile.content.isEmpty) continue;
-
-        // Track mtime so the change monitor won't think this file is "new".
-        try {
-          final mtime = await store.modified(dailyFile.path);
-          if (mtime != null) _lastModified[dailyFile.date] = mtime;
-        } catch (_) {}
 
         await _scheduleNotificationsForDate(dailyFile.date, dailyFile.content);
         scheduledCount++;

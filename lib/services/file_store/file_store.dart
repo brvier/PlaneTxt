@@ -46,6 +46,17 @@ abstract class FileStore {
   /// File content, or `null` when the file does not exist.
   Future<String?> read(String relPath);
 
+  /// Contents of several files in one pass, keyed by the input paths.
+  /// Missing files map to `null`. Backends override this when bulk access
+  /// is much cheaper than per-file reads (SAF: one directory query serves
+  /// every file in that directory).
+  Future<Map<String, String?>> readAll(List<String> relPaths) async {
+    final results = await Future.wait(relPaths.map(read));
+    return {
+      for (var i = 0; i < relPaths.length; i++) relPaths[i]: results[i],
+    };
+  }
+
   /// Write [content] to [relPath], creating parent directories as needed.
   Future<void> write(String relPath, String content);
 

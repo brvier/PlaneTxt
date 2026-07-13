@@ -45,8 +45,18 @@ abstract class BaseRepository<T> {
   /// Return a unique cache key for the given [entry], or `null` to skip it.
   String? matchEntry(StoreEntry entry);
 
-  /// Load one file from the store and return a model, or `null` on failure.
-  Future<T?> loadSingleEntry(StoreEntry entry);
+  /// Build a model from a listed entry and its file content. Return `null`
+  /// to skip the file.
+  T? itemFromContent(StoreEntry entry, String content);
+
+  /// Load one file from the store and return a model, or `null` when the
+  /// file is missing. Batch loading goes through [FileStore.readAll]
+  /// instead - use this only for single-file paths (e.g. loadByDate).
+  Future<T?> loadSingleEntry(StoreEntry entry) async {
+    final content = await storageService.store?.read(entry.relPath);
+    if (content == null) return null;
+    return itemFromContent(entry, content);
+  }
 
   /// Return the cache key for an already-loaded item.
   String fileKey(T item);
@@ -222,16 +232,22 @@ abstract class BaseRepository<T> {
     final sw = Stopwatch()..start();
 
     try {
+      final store = storageService.store!;
       final loaded = <T>[];
       const batchSize = 20;
       var done = 0;
 
       for (var i = 0; i < entries.length; i += batchSize) {
         final batch = entries.skip(i).take(batchSize).toList();
-        final futures = batch.map((e) => loadSingleEntry(e));
-        final results = await Future.wait(futures);
-        for (final r in results) {
-          if (r != null) loaded.add(r);
+        // One bulk read per batch: on SAF each directory is resolved once
+        // for the whole batch instead of once per file.
+        final contents =
+            await store.readAll(batch.map((e) => e.relPath).toList());
+        for (final entry in batch) {
+          final content = contents[entry.relPath];
+          if (content == null) continue; // vanished between list and read
+          final item = itemFromContent(entry, content);
+          if (item != null) loaded.add(item);
         }
         done += batch.length;
         onProgress?.call(done, entries.length);

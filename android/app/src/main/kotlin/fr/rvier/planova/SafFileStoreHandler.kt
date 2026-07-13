@@ -80,6 +80,12 @@ class SafFileStoreHandler(private val activity: Activity) {
                         call.argument<String>("relPath")!!
                     )
                 }
+                "readFiles" -> runInBackground(result) {
+                    readFiles(
+                        Uri.parse(call.argument<String>("treeUri")!!),
+                        call.argument<List<String>>("relPaths")!!
+                    )
+                }
                 "writeFile" -> runInBackground(result) {
                     writeFile(
                         Uri.parse(call.argument<String>("treeUri")!!),
@@ -228,6 +234,42 @@ class SafFileStoreHandler(private val activity: Activity) {
         } catch (e: FileNotFoundException) {
             null
         }
+    }
+
+    /**
+     * Bulk read: resolves each directory once (a single children query maps
+     * every file name to its document id), then streams each requested file.
+     * Missing files map to null. Orders of magnitude faster than per-file
+     * [readFile] calls, which each re-scan their parent directory.
+     */
+    private fun readFiles(treeUri: Uri, relPaths: List<String>): Map<String, String?> {
+        val out = HashMap<String, String?>(relPaths.size)
+        val byParent = relPaths.groupBy { splitParent(it).first }
+        for ((parentRel, paths) in byParent) {
+            val parentId = resolveDirId(treeUri, parentRel, create = false)
+            if (parentId == null) {
+                paths.forEach { out[it] = null }
+                continue
+            }
+            val nameToDocId = HashMap<String, String>()
+            queryChildren(treeUri, parentId) { c ->
+                if (c.getString(2) != DIR_MIME) {
+                    nameToDocId[c.getString(1)] = c.getString(0)
+                }
+            }
+            for (path in paths) {
+                val docId = nameToDocId[splitParent(path).second]
+                out[path] = if (docId == null) null else try {
+                    val docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+                    activity.contentResolver.openInputStream(docUri)?.use { input ->
+                        BufferedReader(InputStreamReader(input)).readText()
+                    }
+                } catch (e: FileNotFoundException) {
+                    null
+                }
+            }
+        }
+        return out
     }
 
     private fun writeFile(treeUri: Uri, relPath: String, content: String) {

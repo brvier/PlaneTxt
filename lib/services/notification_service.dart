@@ -366,7 +366,13 @@ class NotificationService {
     return lines.join('\n');
   }
 
-  Future<void> reviewNotifications() async {
+  /// Pass [contentByDate] (date -> daily file content) when the caller
+  /// already has the files in memory; otherwise the dailies directory is
+  /// read in one bulk pass. Never read files one by one here - on SAF each
+  /// individual read re-scans its parent directory.
+  Future<void> reviewNotifications({
+    Map<String, String>? contentByDate,
+  }) async {
     if (!_initialized) await initialize();
 
     try {
@@ -378,25 +384,36 @@ class NotificationService {
 
       final validEventsByDate = <String, Set<int>>{};
 
-      final store = StorageService().store;
-      if (store != null) {
-        final entries = await store.list(StorageService.dailiesDirName);
+      void addValidEvents(String date, String content) {
+        try {
+          final events = MarkdownParser.parseEvents(date, content);
+          validEventsByDate[date] = events
+              .map((e) => generateEventId(e.displayTitle, e.time))
+              .toSet();
+        } catch (e) {
+          Log.e('NotificationService: error parsing daily $date', error: e);
+        }
+      }
 
-        for (final entry in entries) {
-          final dateMatch = RegExp(r'(\d{8})\.md$').firstMatch(entry.relPath);
-          if (dateMatch == null) continue;
-
-          final date = dateMatch.group(1)!;
-          try {
-            final content = await store.read(entry.relPath) ?? '';
-            final events = MarkdownParser.parseEvents(date, content);
-            validEventsByDate[date] = events
-                .map((e) => generateEventId(e.displayTitle, e.time))
-                .toSet();
-          } catch (e) {
-            Log.e('NotificationService: error parsing ${entry.relPath}',
-                error: e);
+      if (contentByDate != null) {
+        contentByDate.forEach(addValidEvents);
+      } else {
+        final store = StorageService().store;
+        if (store != null) {
+          final entries = await store.list(StorageService.dailiesDirName);
+          final dateByPath = <String, String>{};
+          for (final entry in entries) {
+            final dateMatch =
+                RegExp(r'(\d{8})\.md$').firstMatch(entry.relPath);
+            if (dateMatch != null) {
+              dateByPath[entry.relPath] = dateMatch.group(1)!;
+            }
           }
+          final contents = await store.readAll(dateByPath.keys.toList());
+          dateByPath.forEach((relPath, date) {
+            final content = contents[relPath];
+            if (content != null) addValidEvents(date, content);
+          });
         }
       }
 

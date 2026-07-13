@@ -31,21 +31,13 @@ class NoteRepository extends BaseRepository<NoteFile> {
   String? matchEntry(StoreEntry entry) => _relativeToNotes(entry.relPath);
 
   @override
-  Future<NoteFile?> loadSingleEntry(StoreEntry entry) async {
-    try {
-      final content = await storageService.store!.read(entry.relPath) ?? '';
-
-      return NoteFile(
-        path: entry.relPath,
-        relativePath: _relativeToNotes(entry.relPath),
-        content: content,
-        lastModified: entry.modified ?? DateTime.now(),
-      );
-    } catch (e) {
-      Log.e('❌ NoteRepository: Error loading note file ${entry.relPath}',
-          error: e);
-      return null;
-    }
+  NoteFile? itemFromContent(StoreEntry entry, String content) {
+    return NoteFile(
+      path: entry.relPath,
+      relativePath: _relativeToNotes(entry.relPath),
+      content: content,
+      lastModified: entry.modified ?? DateTime.now(),
+    );
   }
 
   @override

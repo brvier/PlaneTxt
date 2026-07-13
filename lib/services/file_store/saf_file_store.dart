@@ -9,7 +9,7 @@ import 'package:planova/utils/logger.dart';
 /// Backed by the `fr.rvier.planova/saf` method channel
 /// (SafFileStoreHandler.kt). The tree URI comes from the system folder
 /// picker and is persisted across restarts - no storage permission needed.
-class SafFileStore implements FileStore {
+class SafFileStore extends FileStore {
   static const MethodChannel _channel = MethodChannel('fr.rvier.planova/saf');
 
   final String treeUri;
@@ -90,6 +90,23 @@ class SafFileStore implements FileStore {
         'treeUri': treeUri,
         'relPath': normalizeRelPath(relPath),
       });
+
+  /// One channel call for the whole batch: the Kotlin side resolves each
+  /// directory once (a single children query gives every file's document
+  /// id) instead of re-scanning the directory per file.
+  @override
+  Future<Map<String, String?>> readAll(List<String> relPaths) async {
+    if (relPaths.isEmpty) return const {};
+    final normalized = relPaths.map(normalizeRelPath).toList();
+    final raw = await _invoke<Map<Object?, Object?>>('readFiles', {
+      'treeUri': treeUri,
+      'relPaths': normalized,
+    });
+    return {
+      for (var i = 0; i < relPaths.length; i++)
+        relPaths[i]: raw?[normalized[i]] as String?,
+    };
+  }
 
   @override
   Future<void> write(String relPath, String content) => _invoke('writeFile', {

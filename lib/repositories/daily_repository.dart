@@ -25,21 +25,13 @@ class DailyRepository extends BaseRepository<DailyFile> {
   }
 
   @override
-  Future<DailyFile?> loadSingleEntry(StoreEntry entry) async {
-    try {
-      final fileName = entry.relPath.split('/').last;
-      final dateMatch = _datePattern.firstMatch(fileName);
-      if (dateMatch == null) return null;
+  DailyFile? itemFromContent(StoreEntry entry, String content) {
+    final fileName = entry.relPath.split('/').last;
+    final dateMatch = _datePattern.firstMatch(fileName);
+    if (dateMatch == null) return null;
 
-      final date = dateMatch.group(1)!;
-      final content = await storageService.store!.read(entry.relPath) ?? '';
-
-      return DailyFile(path: entry.relPath, date: date, content: content);
-    } catch (e) {
-      Log.e('❌ DailyRepository: Error loading daily file ${entry.relPath}',
-          error: e);
-      return null;
-    }
+    return DailyFile(
+        path: entry.relPath, date: dateMatch.group(1)!, content: content);
   }
 
   @override

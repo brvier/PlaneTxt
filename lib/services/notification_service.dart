@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:planova/services/storage_service.dart';
 import 'package:planova/utils/logger.dart';
 import 'package:planova/utils/markdown_parser.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -366,7 +366,7 @@ class NotificationService {
     return lines.join('\n');
   }
 
-  Future<void> reviewNotifications(Directory dailiesDirectory) async {
+  Future<void> reviewNotifications() async {
     if (!_initialized) await initialize();
 
     try {
@@ -378,26 +378,24 @@ class NotificationService {
 
       final validEventsByDate = <String, Set<int>>{};
 
-      if (dailiesDirectory.existsSync()) {
-        final files = dailiesDirectory
-            .listSync()
-            .where((entity) => entity is File && entity.path.endsWith('.md'))
-            .cast<File>();
+      final store = StorageService().store;
+      if (store != null) {
+        final entries = await store.list(StorageService.dailiesDirName);
 
-        for (final file in files) {
-          final fileName = path.basename(file.path);
-          final dateMatch = RegExp(r'(\d{8})\.md$').firstMatch(fileName);
+        for (final entry in entries) {
+          final dateMatch = RegExp(r'(\d{8})\.md$').firstMatch(entry.relPath);
           if (dateMatch == null) continue;
 
           final date = dateMatch.group(1)!;
           try {
-            final content = await file.readAsString();
+            final content = await store.read(entry.relPath) ?? '';
             final events = MarkdownParser.parseEvents(date, content);
             validEventsByDate[date] = events
                 .map((e) => generateEventId(e.displayTitle, e.time))
                 .toSet();
           } catch (e) {
-            Log.e('NotificationService: error parsing $fileName', error: e);
+            Log.e('NotificationService: error parsing ${entry.relPath}',
+                error: e);
           }
         }
       }
@@ -435,8 +433,7 @@ class NotificationService {
         }
 
         // Remove if date file no longer exists
-        final dateFile = File('${dailiesDirectory.path}/$date.md');
-        if (!dateFile.existsSync()) {
+        if (!validEventsByDate.containsKey(date)) {
           await _notifications.cancel(id: notification.id);
           removedCount++;
           continue;

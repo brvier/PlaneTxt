@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:planova/models/note_file.dart';
@@ -118,22 +117,12 @@ class NoteFileProvider extends ChangeNotifier {
         : '${note.folderPath}/$cleanName.md';
 
     try {
-      // Check if exists
-      final dir = _storageService.notesDirectory;
-      if (dir == null) {
-        Log.e('❌ NoteFileProvider: Notes directory not initialized');
+      if (!_storageService.isInitialized) {
+        Log.e('❌ NoteFileProvider: Storage not initialized');
         return false;
       }
 
-      final newFile = File('${dir.path}/$newRelativePath');
-      if (await newFile.exists()) {
-        Log.w('📝 NoteFileProvider: File already exists at $newRelativePath');
-        return false;
-      }
-
-      // Perform rename
-      final oldFile = File(note.path);
-      await oldFile.rename(newFile.path);
+      await _noteRepository.rename(note, newRelativePath);
 
       // Reload notes
       await loadNoteFiles();
@@ -169,9 +158,9 @@ class NoteFileProvider extends ChangeNotifier {
   /// Update widget with recent notes
   Future<void> _updateWidget() async {
     try {
-      if (_storageService.orgDirectory == null) {
+      if (!_storageService.isInitialized) {
         Log.d(
-            '📱 NoteFileProvider: Skipping widget update - directories not initialized');
+            '📱 NoteFileProvider: Skipping widget update - storage not initialized');
         return;
       }
 

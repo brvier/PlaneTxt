@@ -1,15 +1,16 @@
-import 'dart:io';
-
 import 'package:path/path.dart' as path;
 import 'package:planova/models/note_file.dart';
 import 'package:planova/repositories/base_repository.dart';
+import 'package:planova/services/storage_service.dart';
 import 'package:planova/utils/logger.dart';
 
 class NoteRepository extends BaseRepository<NoteFile> {
   NoteRepository(super.storageService);
 
+  static final _notesPrefix = '${StorageService.notesDirName}/';
+
   @override
-  Directory? get directory => storageService.notesDirectory;
+  String get scanDir => StorageService.notesDirName;
 
   @override
   String get cacheFileName => '._note_cache.json';
@@ -20,46 +21,35 @@ class NoteRepository extends BaseRepository<NoteFile> {
   @override
   bool get recursive => true;
 
-  @override
-  String? matchFile(File file) {
-    final dir = directory;
-    if (dir == null) return null;
-    return path.relative(file.path, from: dir.path).replaceAll('\\', '/');
-  }
+  /// Store path (`notes/a/b.md`) → path relative to the notes dir (`a/b.md`).
+  String _relativeToNotes(String relPath) =>
+      relPath.startsWith(_notesPrefix)
+          ? relPath.substring(_notesPrefix.length)
+          : relPath;
 
   @override
-  Future<NoteFile?> loadSingleFile(File file) async {
+  String? matchEntry(StoreEntry entry) => _relativeToNotes(entry.relPath);
+
+  @override
+  Future<NoteFile?> loadSingleEntry(StoreEntry entry) async {
     try {
-      final dir = directory;
-      if (dir == null) return null;
-
-      final content = await storageService.readFile(file);
-      final relativePath =
-          path.relative(file.path, from: dir.path).replaceAll('\\', '/');
-      final lastMod = file.lastModifiedSync();
+      final content = await storageService.store!.read(entry.relPath) ?? '';
 
       return NoteFile(
-        path: file.path,
-        relativePath: relativePath,
+        path: entry.relPath,
+        relativePath: _relativeToNotes(entry.relPath),
         content: content,
-        lastModified: lastMod,
+        lastModified: entry.modified ?? DateTime.now(),
       );
     } catch (e) {
-      Log.e('❌ NoteRepository: Error loading note file ${file.path}', error: e);
+      Log.e('❌ NoteRepository: Error loading note file ${entry.relPath}',
+          error: e);
       return null;
     }
   }
 
   @override
   String fileKey(NoteFile item) => item.relativePath;
-
-  @override
-  NoteFile copyWithPath(NoteFile item, String newPath) {
-    return item.copyWith(
-      path: newPath,
-      lastModified: File(newPath).lastModifiedSync(),
-    );
-  }
 
   @override
   int compare(NoteFile a, NoteFile b) =>
@@ -98,8 +88,7 @@ class NoteRepository extends BaseRepository<NoteFile> {
   /// Save note file.
   Future<void> save(NoteFile noteFile) async {
     try {
-      final file = File(noteFile.path);
-      await storageService.writeFile(file, noteFile.content);
+      await storageService.store!.write(noteFile.path, noteFile.content);
       cache[noteFile.relativePath] =
           noteFile.copyWith(lastModified: DateTime.now());
       Log.d('📝 NoteRepository: Saved note file ${noteFile.relativePath}');
@@ -137,24 +126,14 @@ class NoteRepository extends BaseRepository<NoteFile> {
 
   /// Create new note file.
   Future<NoteFile> create(String relativePath, String content) async {
-    final dir = directory;
-    if (dir == null) {
-      throw Exception('Notes directory not initialized');
+    if (!storageService.isInitialized) {
+      throw Exception('Storage not initialized');
     }
 
     final sanitizedRelativePath = _sanitizeRelativePath(relativePath);
-    final filePath =
-        path.normalize(path.join(dir.path, sanitizedRelativePath));
-
-    if (!path.isWithin(dir.path, filePath)) {
-      throw ArgumentError('Note path escapes notes directory');
-    }
-
-    final file = File(filePath);
-    await file.parent.create(recursive: true);
 
     final noteFile = NoteFile(
-      path: filePath,
+      path: StorageService.notePath(sanitizedRelativePath),
       relativePath: sanitizedRelativePath,
       content: content,
       lastModified: DateTime.now(),
@@ -164,11 +143,34 @@ class NoteRepository extends BaseRepository<NoteFile> {
     return noteFile;
   }
 
+  /// Rename/move a note within the notes directory.
+  Future<NoteFile> rename(NoteFile noteFile, String newRelativePath) async {
+    final sanitized = _sanitizeRelativePath(newRelativePath);
+    final newStorePath = StorageService.notePath(sanitized);
+
+    final store = storageService.store!;
+    if (await store.exists(newStorePath)) {
+      throw ArgumentError('A note named $sanitized already exists');
+    }
+
+    await store.rename(noteFile.path, newStorePath);
+    cache.remove(noteFile.relativePath);
+    lastModified.remove(noteFile.relativePath);
+
+    final renamed = noteFile.copyWith(
+      path: newStorePath,
+      relativePath: sanitized,
+      lastModified: DateTime.now(),
+    );
+    cache[renamed.relativePath] = renamed;
+    Log.d('📝 NoteRepository: Renamed ${noteFile.relativePath} → $sanitized');
+    return renamed;
+  }
+
   /// Delete note file.
   Future<void> delete(NoteFile noteFile) async {
     try {
-      final file = File(noteFile.path);
-      await storageService.deleteFile(file);
+      await storageService.store!.delete(noteFile.path);
       cache.remove(noteFile.relativePath);
       Log.d('📝 NoteRepository: Deleted note file ${noteFile.relativePath}');
     } catch (e) {

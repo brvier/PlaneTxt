@@ -6,7 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:planova/screens/widget_debug_screen.dart';
 import 'package:planova/services/notification_service.dart';
 import 'package:planova/services/widget_service.dart';
-import 'package:planova/utils/permission_helper.dart';
+import 'package:planova/services/storage_service.dart';
 
 class WidgetHealthTile extends StatelessWidget {
   const WidgetHealthTile({super.key});
@@ -27,10 +27,13 @@ class WidgetHealthTile extends StatelessWidget {
 
     final results = <String>[];
 
-    final hasStorage = await PermissionHelper.hasStoragePermission();
-    results.add(hasStorage
-        ? '✓ Storage permission granted'
-        : '⚠ Storage permission missing');
+    final storageService = StorageService();
+    results.add(storageService.isInitialized
+        ? '✓ Storage root: ${storageService.storageDescription}'
+        : '⚠ Storage not initialized');
+    if (storageService.storageAccessLost) {
+      results.add('⚠ Lost access to configured storage folder');
+    }
 
     String exactAlarmStatus = '✓ Exact alarms not required (pre-Android 12)';
     if (Platform.isAndroid) {

@@ -91,12 +91,28 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     Log.i('🚀 MainScreen: Starting provider initialization...');
 
     try {
-      // 1. Directories first — everything else depends on this.
+      // 1. Directories first - everything else depends on this.
       Log.i('🚀 MainScreen: Initializing DirectoryProvider...');
       final directoryProvider = context.read<DirectoryProvider>();
       await directoryProvider.initializeDirectories(context);
 
       if (!mounted) return;
+
+      // Access to the configured storage folder was lost (folder deleted,
+      // permission revoked, or migration from the pre-SAF custom path).
+      // The app fell back to its private folder; tell the user how to get
+      // their files back.
+      if (directoryProvider.storageAccessLost) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Storage folder is no longer accessible. Re-select it in '
+                'Preferences → Storage Location to keep using your synced '
+                'files.'),
+            duration: Duration(seconds: 12),
+          ),
+        );
+      }
 
       // 2. Today-priority load: disk-cache restore + today refresh. The
       //    calendar can paint with last-known content immediately after.
@@ -106,8 +122,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       if (!mounted) return;
 
-      // 3. Everything else — notifications, file monitor, full validation,
-      //    notes — runs in the background; no await on the critical path.
+      // 3. Everything else - notifications, file monitor, full validation,
+      //    notes - runs in the background; no await on the critical path.
       unawaited(_runBackgroundStartupTasks(directoryProvider));
 
       Log.i('🚀 MainScreen: Critical-path initialization complete');
@@ -123,7 +139,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       final dailyProvider = context.read<DailyFileProvider>();
       final noteProvider = context.read<NoteFileProvider>();
 
-      // Notification plugin init + permission request — deliberately after
+      // Notification plugin init + permission request - deliberately after
       // first paint (platform channels + possible system dialog).
       final notificationService = NotificationService();
       await notificationService.initialize();
@@ -131,32 +147,26 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       if (!mounted) return;
 
-      // Start file-change monitoring.
-      final dailiesDirectory = directoryProvider.dailiesDirectory;
-      if (dailiesDirectory != null) {
-        await FileMonitorService().initialize(dailiesDirectory);
-      } else {
-        Log.w(
-            '🚀 MainScreen: Dailies directory not initialized; skipping file monitor');
-      }
+      // Start file-change monitoring (native events or SAF polling).
+      await FileMonitorService().initialize();
 
       if (!mounted) return;
 
       // Full mtime sweep + reload of stale daily files.
-      Log.i('🚀 MainScreen: Background — full daily file validation...');
+      Log.i('🚀 MainScreen: Background - full daily file validation...');
       await dailyProvider.loadDailyFiles();
 
       if (!mounted) return;
 
       // Schedule notifications for existing events using already-loaded
-      // content — avoids a second filesystem-wide scan + read.
+      // content - avoids a second filesystem-wide scan + read.
       await FileMonitorService()
           .scheduleExistingEvents(dailyFiles: dailyProvider.dailyFiles);
 
       if (!mounted) return;
 
-      // Notes — user is on the Calendar tab; safe to defer.
-      Log.i('🚀 MainScreen: Background — loading note files...');
+      // Notes - user is on the Calendar tab; safe to defer.
+      Log.i('🚀 MainScreen: Background - loading note files...');
       await noteProvider.loadNoteFiles();
 
       if (!mounted) return;

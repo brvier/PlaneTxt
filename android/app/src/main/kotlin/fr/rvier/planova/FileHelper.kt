@@ -1,11 +1,13 @@
 package fr.rvier.planova
 
 import android.content.Context
-import android.content.SharedPreferences
-import android.os.Environment
+import android.net.Uri
+import android.provider.DocumentsContract
 import android.util.Log
 import es.antonborri.home_widget.HomeWidgetPlugin
+import java.io.BufferedReader
 import java.io.File
+import java.io.InputStreamReader
 
 object FileHelper {
     private const val TAG = "FileHelper"
@@ -13,10 +15,86 @@ object FileHelper {
     private const val FLUTTER_SHARED_PREFERENCES_NAME = "FlutterSharedPreferences"
     private const val FLUTTER_KEY_PREFIX = "flutter."
     private const val STORAGE_PATH_KEY = "storage_path"
+    private const val STORAGE_TREE_URI_KEY = "storage_tree_uri"
     private const val ORG_DIR_NAME = "Org"
     private const val DAILIES_DIR_NAME = "dailies"
     private const val WIDGET_DAILY_CONTENT_KEY = "widget_daily_content"
     private const val WIDGET_DATE_KEY = "widget_date"
+
+    /**
+     * SAF document-tree URI of the user-selected storage folder, if any.
+     * Only returned when the app still holds a persisted read grant for it.
+     */
+    fun getStorageTreeUri(context: Context): Uri? {
+        val widgetPrefs = HomeWidgetPlugin.getData(context)
+        var uriString = widgetPrefs.getString(STORAGE_TREE_URI_KEY, null)
+        if (uriString.isNullOrEmpty()) {
+            val flutterPrefs = context.getSharedPreferences(
+                FLUTTER_SHARED_PREFERENCES_NAME,
+                Context.MODE_PRIVATE
+            )
+            uriString = flutterPrefs.getString(
+                "${FLUTTER_KEY_PREFIX}$STORAGE_TREE_URI_KEY", null
+            ) ?: flutterPrefs.getString(STORAGE_TREE_URI_KEY, null)
+        }
+        if (uriString.isNullOrEmpty()) return null
+
+        val uri = Uri.parse(uriString)
+        val granted = context.contentResolver.persistedUriPermissions
+            .any { it.uri == uri && it.isReadPermission }
+        if (!granted) {
+            Log.w(TAG, "No persisted grant for tree $uri")
+            return null
+        }
+        return uri
+    }
+
+    /**
+     * Read `dailies/<date>.md` from a SAF tree. Returns null when the file
+     * doesn't exist or can't be read.
+     */
+    fun readDailyContentFromTree(context: Context, treeUri: Uri, date: String): String? {
+        return try {
+            val dailiesId = findChildDocumentId(
+                context, treeUri,
+                DocumentsContract.getTreeDocumentId(treeUri),
+                DAILIES_DIR_NAME
+            ) ?: return null
+            val fileId = findChildDocumentId(context, treeUri, dailiesId, "$date.md")
+                ?: return null
+            val docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, fileId)
+            context.contentResolver.openInputStream(docUri)?.use { input ->
+                BufferedReader(InputStreamReader(input)).readText()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading daily file from SAF tree", e)
+            null
+        }
+    }
+
+    private fun findChildDocumentId(
+        context: Context,
+        treeUri: Uri,
+        parentDocId: String,
+        name: String
+    ): String? {
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+            treeUri, parentDocId
+        )
+        context.contentResolver.query(
+            childrenUri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME
+            ),
+            null, null, null
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                if (cursor.getString(1) == name) return cursor.getString(0)
+            }
+        }
+        return null
+    }
 
     /**
      * Get storage path from SharedPreferences or default
@@ -82,13 +160,6 @@ object FileHelper {
         val documentsDir = context.filesDir.resolve("documents")
         val orgDir = documentsDir.resolve(ORG_DIR_NAME)
         return orgDir
-    }
-
-    /**
-     * Check if MANAGE_EXTERNAL_STORAGE permission is granted
-     */
-    fun hasManageExternalStoragePermission(context: Context): Boolean {
-        return android.os.Environment.isExternalStorageManager()
     }
 
     /**

@@ -15,6 +15,8 @@ class ThemeProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   AppTheme _appTheme = AppTheme.gruvbox;
   String? _customStoragePath;
+  String? _storageTreeUri;
+  String? _storageTreeName;
   String _dailyTemplate = '';
   bool _widgetDarkTheme = false;
   double _widgetTransparency =
@@ -39,6 +41,8 @@ class ThemeProvider extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
   AppTheme get appTheme => _appTheme;
   String? get customStoragePath => _customStoragePath;
+  String? get storageTreeUri => _storageTreeUri;
+  String? get storageTreeName => _storageTreeName;
   String get dailyTemplate => _dailyTemplate;
   bool get widgetDarkTheme => _widgetDarkTheme;
   double get widgetTransparency => _widgetTransparency;
@@ -54,7 +58,7 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   /// SharedPreferences is loaded before runApp (SharedPrefsService), so all
-  /// values are available synchronously — no loading gate needed. Only the
+  /// values are available synchronously - no loading gate needed. Only the
   /// side effects (widget sync, legacy key migration) stay async.
   void _initialize() {
     final prefs = SharedPrefsService.instance;
@@ -63,6 +67,8 @@ class ThemeProvider extends ChangeNotifier {
     _appTheme =
         AppTheme.values[prefs.getInt(_appThemeKey) ?? AppTheme.gruvbox.index];
     _customStoragePath = prefs.getString(_storagePathKey);
+    _storageTreeUri = prefs.getString(AppConstants.storageTreeUriKey);
+    _storageTreeName = prefs.getString(AppConstants.storageTreeNameKey);
     _dailyTemplate = prefs.getString(_templateKey) ?? _getDefaultTemplate();
     _widgetDarkTheme = prefs.getBool(AppConstants.widgetThemeKey) ??
         prefs.getBool(_legacyWidgetThemeKey) ??
@@ -93,16 +99,21 @@ class ThemeProvider extends ChangeNotifier {
           AppConstants.widgetTransparencyKey, _widgetTransparency);
     }
 
-    if (_customStoragePath != null && _customStoragePath!.isNotEmpty) {
-      try {
+    try {
+      if (_customStoragePath != null && _customStoragePath!.isNotEmpty) {
         await HomeWidget.saveWidgetData<String>(
           AppConstants.storagePathKey,
           _customStoragePath!,
         );
-      } catch (e, stackTrace) {
-        Log.w('⚠️ ThemeProvider: Failed to sync widget storage path on load',
-            error: e, stackTrace: stackTrace);
       }
+      // The Android widget reads the SAF tree URI to fetch today's file.
+      await HomeWidget.saveWidgetData<String>(
+        AppConstants.storageTreeUriKey,
+        _storageTreeUri ?? '',
+      );
+    } catch (e, stackTrace) {
+      Log.w('⚠️ ThemeProvider: Failed to sync widget storage config on load',
+          error: e, stackTrace: stackTrace);
     }
   }
 
@@ -133,30 +144,59 @@ class ThemeProvider extends ChangeNotifier {
     await WidgetService.updateWidgetColors();
   }
 
+  /// Configure a raw filesystem custom path (desktop). Clears any SAF tree.
   Future<void> setStoragePath(String? path) async {
     Log.d('💾 ThemeProvider: Setting storage path to: $path');
     _customStoragePath = path;
+    _storageTreeUri = null;
+    _storageTreeName = null;
     final prefs = SharedPrefsService.instance;
     if (path != null) {
-      Log.d(
-          '💾 ThemeProvider: Saving path to SharedPreferences with key: $_storagePathKey');
       await prefs.setString(_storagePathKey, path);
-      Log.d('💾 ThemeProvider: Path saved successfully');
     } else {
-      Log.d('💾 ThemeProvider: Removing storage path from SharedPreferences');
       await prefs.remove(_storagePathKey);
-      Log.d('💾 ThemeProvider: Path removed successfully');
     }
+    await prefs.remove(AppConstants.storageTreeUriKey);
+    await prefs.remove(AppConstants.storageTreeNameKey);
+    await _syncWidgetStorageConfig();
+    notifyListeners();
+  }
+
+  /// Configure an Android SAF document tree as storage root. Clears any raw
+  /// custom path.
+  Future<void> setStorageTree(String? treeUri, String? displayName) async {
+    Log.d('💾 ThemeProvider: Setting storage tree to: $treeUri ($displayName)');
+    _storageTreeUri = treeUri;
+    _storageTreeName = displayName;
+    _customStoragePath = null;
+    final prefs = SharedPrefsService.instance;
+    if (treeUri != null) {
+      await prefs.setString(AppConstants.storageTreeUriKey, treeUri);
+      await prefs.setString(
+          AppConstants.storageTreeNameKey, displayName ?? treeUri);
+    } else {
+      await prefs.remove(AppConstants.storageTreeUriKey);
+      await prefs.remove(AppConstants.storageTreeNameKey);
+    }
+    await prefs.remove(_storagePathKey);
+    await _syncWidgetStorageConfig();
+    notifyListeners();
+  }
+
+  Future<void> _syncWidgetStorageConfig() async {
     try {
       await HomeWidget.saveWidgetData<String>(
         AppConstants.storagePathKey,
-        path ?? '',
+        _customStoragePath ?? '',
+      );
+      await HomeWidget.saveWidgetData<String>(
+        AppConstants.storageTreeUriKey,
+        _storageTreeUri ?? '',
       );
     } catch (e, stackTrace) {
-      Log.w('⚠️ ThemeProvider: Failed to sync widget storage path',
+      Log.w('⚠️ ThemeProvider: Failed to sync widget storage config',
           error: e, stackTrace: stackTrace);
     }
-    notifyListeners();
   }
 
   Future<void> setDailyTemplate(String template) async {
@@ -209,13 +249,16 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   String getDisplayStoragePath() {
+    if (_storageTreeUri != null) {
+      return _storageTreeName ?? _storageTreeUri!;
+    }
     if (_customStoragePath != null) {
       return _customStoragePath!;
     }
     return 'Default (App Documents/Org)';
   }
 
-  /// Kept for API compatibility — initialization is now synchronous.
+  /// Kept for API compatibility - initialization is now synchronous.
   Future<void> waitForInitialization() async {}
 
   ThemeData get lightTheme {

@@ -49,6 +49,10 @@ class AppConstants {
   static const String themeModeKey = 'theme_mode';
   static const String appThemeKey = 'app_theme';
   static const String storagePathKey = 'storage_path';
+  // SAF document-tree URI of the user-selected storage folder (Android).
+  static const String storageTreeUriKey = 'storage_tree_uri';
+  // Human-readable name of that folder, for display.
+  static const String storageTreeNameKey = 'storage_tree_name';
   static const String templateKey = 'daily_template';
   // NOTE: Do not prefix these with `flutter.`.
   // The `shared_preferences` Android implementation already prefixes keys with

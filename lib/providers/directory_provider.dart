@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:planova/providers/theme_provider.dart';
 import 'package:planova/services/storage_service.dart';
@@ -12,41 +10,36 @@ class DirectoryProvider extends ChangeNotifier {
 
   DirectoryProvider();
 
-  Directory? get documentsDirectory => _storageService.documentsDirectory;
-  Directory? get orgDirectory => _storageService.orgDirectory;
-  Directory? get dailiesDirectory => _storageService.dailiesDirectory;
-  Directory? get archivesDirectory => _storageService.archivesDirectory;
-  Directory? get notesDirectory => _storageService.notesDirectory;
-
   bool get isInitialized => _initialized;
 
+  /// True when the configured storage root (SAF tree or custom path) could
+  /// not be accessed and the app fell back to the default private folder.
+  /// The UI should prompt the user to re-select their folder.
+  bool get storageAccessLost => _storageService.storageAccessLost;
+
   Future<void> initializeDirectories(BuildContext context) async {
-    Log.i('📁 DirectoryProvider: Initializing directories...');
+    Log.i('📁 DirectoryProvider: Initializing storage...');
 
     try {
-      // Get custom storage path from ThemeProvider
       final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-      final customPath = themeProvider.customStoragePath;
 
-      await _storageService.initializeDirectories(customPath);
+      await _storageService.initializeDirectories(
+        customPath: themeProvider.customStoragePath,
+        safTreeUri: themeProvider.storageTreeUri,
+        safDisplayName: themeProvider.storageTreeName,
+      );
 
       _initialized = true;
-      Log.i(
-          '📁 DirectoryProvider: Directory initialization completed successfully');
+      Log.i('📁 DirectoryProvider: Storage initialization completed');
       notifyListeners();
     } catch (e) {
-      Log.e('❌ DirectoryProvider: Error initializing directories', error: e);
+      Log.e('❌ DirectoryProvider: Error initializing storage', error: e);
       _initialized = false;
       rethrow;
     }
   }
 
-  String getCurrentStoragePath() {
-    final path = _storageService.orgDirectory?.path ?? 'Not initialized';
-    Log.d(
-        '📁 DirectoryProvider: getCurrentStoragePath() called, returning: $path');
-    return path;
-  }
+  String getCurrentStoragePath() => _storageService.storageDescription;
 
   @override
   void dispose() {

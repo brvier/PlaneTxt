@@ -18,9 +18,15 @@ class MainActivity : FlutterActivity() {
     private val ALARM_CHANNEL = "planova/alarm_permission"
     private var sharedText: String? = null
     private var sharedUri: Uri? = null
+    private var safHandler: SafFileStoreHandler? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        safHandler = SafFileStoreHandler(this).also {
+            it.register(flutterEngine.dartExecutor.binaryMessenger)
+        }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getSharedText" -> {
@@ -76,6 +82,13 @@ class MainActivity : FlutterActivity() {
         super.onNewIntent(intent)
         Log.d("MainActivity", "onNewIntent called, handling new intent")
         handleIntent(intent)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (safHandler?.handleActivityResult(requestCode, resultCode, data) == true) {
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     private fun handleIntent(intent: Intent) {

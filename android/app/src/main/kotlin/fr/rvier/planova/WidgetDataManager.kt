@@ -28,14 +28,6 @@ object WidgetDataManager {
             // Get today's date string
             val todayDate = getTodayDateString()
             Log.d(TAG, "Today's date: $todayDate")
-            
-            // Check for MANAGE_EXTERNAL_STORAGE permission
-            if (!FileHelper.hasManageExternalStoragePermission(context)) {
-                val message = "Permission denied - Cannot access storage files"
-                Log.e(TAG, message)
-                FileHelper.showWidgetError(context, message, triggerWidgetUpdate)
-                return
-            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
@@ -46,37 +38,32 @@ object WidgetDataManager {
                 }
             }
             
-            // Get storage path
-            val storagePath = FileHelper.getStoragePath(context)
-            if (storagePath == null) {
-                val message = "Storage path not configured"
-                Log.e(TAG, message)
-                FileHelper.showWidgetError(context, message, triggerWidgetUpdate)
-                return
+            // Read today's daily file: from the SAF tree when the user
+            // selected a custom folder, else from the raw storage path
+            // (app-private default).
+            val treeUri = FileHelper.getStorageTreeUri(context)
+            val content: String?
+            if (treeUri != null) {
+                Log.d(TAG, "Reading daily file from SAF tree: $treeUri")
+                content = FileHelper.readDailyContentFromTree(context, treeUri, todayDate)
+            } else {
+                val storagePath = FileHelper.getStoragePath(context)
+                if (storagePath == null) {
+                    val message = "Storage path not configured"
+                    Log.e(TAG, message)
+                    FileHelper.showWidgetError(context, message, triggerWidgetUpdate)
+                    return
+                }
+                val dailyFilePath = FileHelper.getDailyFilePath(storagePath, todayDate)
+                Log.d(TAG, "Daily file path: ${dailyFilePath.absolutePath}")
+                content = if (FileHelper.fileExists(dailyFilePath)) {
+                    FileHelper.readFile(dailyFilePath)
+                } else {
+                    null
+                }
             }
-            
-            // Construct path to daily file
-            val dailyFilePath = FileHelper.getDailyFilePath(storagePath, todayDate)
-            Log.d(TAG, "Daily file path: ${dailyFilePath.absolutePath}")
-            
-            // Check if file exists
-            if (!FileHelper.fileExists(dailyFilePath)) {
-                val message = "No content for today"
-                Log.i(TAG, message)
-                updateWidgetContent(context, message, todayDate, triggerWidgetUpdate)
-                return
-            }
-            
-            // Read file content
-            val content = FileHelper.readFile(dailyFilePath)
-            if (content == null) {
-                val message = "⚠️ Error: Failed to read file"
-                Log.e(TAG, message)
-                FileHelper.showWidgetError(context, message, triggerWidgetUpdate)
-                return
-            }
-            
-            if (content.isBlank()) {
+
+            if (content == null || content.isBlank()) {
                 val message = "No content for today"
                 Log.i(TAG, message)
                 updateWidgetContent(context, message, todayDate, triggerWidgetUpdate)

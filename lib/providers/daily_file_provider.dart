@@ -403,9 +403,9 @@ class DailyFileProvider extends ChangeNotifier {
   /// Update widget with today's daily file
   Future<void> _updateWidget() async {
     try {
-      if (_storageService.orgDirectory == null) {
+      if (!_storageService.isInitialized) {
         Log.d(
-            '📱 DailyFileProvider: Skipping widget update - directories not initialized');
+            '📱 DailyFileProvider: Skipping widget update - storage not initialized');
         return;
       }
 

@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:path/path.dart' as path;
 import 'package:planova/models/daily_file.dart';
 import 'package:planova/services/notification_service.dart';
 import 'package:planova/services/storage_service.dart';
@@ -13,15 +11,18 @@ class FileMonitorService {
   factory FileMonitorService() => _instance;
   FileMonitorService._internal();
 
-  Directory? _dailiesDirectory;
+  final StorageService _storageService = StorageService();
   Timer? _pollingTimer;
-  StreamSubscription<FileSystemEvent>? _watchSubscription;
+  StreamSubscription<void>? _watchSubscription;
   Timer? _watchDebounceTimer;
   final Map<String, DateTime> _lastModified = {};
   final NotificationService _notificationService = NotificationService();
-  // Fallback polling interval when native file watching isn't available.
+  // Polling interval when native file watching isn't available (SAF trees,
+  // exotic filesystems).
   static const Duration _pollingInterval = Duration(seconds: 30);
   static const Duration _watchDebounce = Duration(seconds: 2);
+
+  static final _datePattern = RegExp(r'(\d{8})\.md$');
 
   // Track dates recently scheduled by DailyFileProvider to avoid
   // the FileMonitorService cancelling those notifications immediately.
@@ -29,38 +30,50 @@ class FileMonitorService {
   static const Duration _debounceWindow = Duration(seconds: 10);
 
   /// Called whenever a daily file changes (or is deleted) on disk, so the
-  /// provider can refresh its in-memory copy — external edits must reach
+  /// provider can refresh its in-memory copy - external edits must reach
   /// the UI, not only the notification scheduler.
   void Function(String date)? onDailyFileChanged;
 
-  Future<void> initialize(Directory dailiesDirectory) async {
-    _dailiesDirectory = dailiesDirectory;
-
-    if (!dailiesDirectory.existsSync()) {
-      Log.e('📁 FileMonitorService: Dailies directory does not exist');
+  Future<void> initialize() async {
+    final store = _storageService.store;
+    if (store == null) {
+      Log.e('📁 FileMonitorService: Storage not initialized');
       return;
     }
 
     await _notificationService.initialize();
 
     Log.i(
-        '📁 FileMonitorService: Starting file monitoring for ${dailiesDirectory.path}');
+        '📁 FileMonitorService: Starting file monitoring for ${store.rootDescription}');
 
     // Prefer native file-system events (inotify & co) over polling; fall
-    // back to a slow poll where watching isn't supported. Notification
-    // scheduling for existing events is deferred — call
+    // back to a slow poll where watching isn't supported (SAF trees).
+    // Notification scheduling for existing events is deferred - call
     // [scheduleExistingEvents] from the caller once daily files are loaded.
-    if (!_startWatching(dailiesDirectory)) {
+    if (!_startWatching()) {
       _startPolling();
     }
   }
 
+  /// Re-attach watching/polling after the storage root changed.
+  Future<void> reinitialize() async {
+    _pollingTimer?.cancel();
+    _watchDebounceTimer?.cancel();
+    await _watchSubscription?.cancel();
+    _watchSubscription = null;
+    _lastModified.clear();
+    await initialize();
+  }
+
   /// Returns true if native watching could be set up.
-  bool _startWatching(Directory dir) {
-    if (!FileSystemEntity.isWatchSupported) return false;
+  bool _startWatching() {
+    final store = _storageService.store;
+    if (store == null || !store.supportsNativeWatch) return false;
     try {
+      final stream = store.watchDirectory(StorageService.dailiesDirName);
+      if (stream == null) return false;
       _watchSubscription?.cancel();
-      _watchSubscription = dir.watch().listen(
+      _watchSubscription = stream.listen(
         (event) {
           // Coalesce bursts of events (editors write several times).
           _watchDebounceTimer?.cancel();
@@ -84,7 +97,7 @@ class FileMonitorService {
     }
   }
 
-  /// Today as a yyyyMMdd string — daily dates compare correctly as strings.
+  /// Today as a yyyyMMdd string - daily dates compare correctly as strings.
   static String _todayString() {
     final now = DateTime.now();
     return '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
@@ -93,7 +106,7 @@ class FileMonitorService {
   /// Schedule notifications for events that already exist on disk.
   /// Pass [dailyFiles] to reuse already-loaded content and avoid a second
   /// filesystem-wide scan + read; otherwise the directory is scanned.
-  /// Only today and future dates are considered — past events can never
+  /// Only today and future dates are considered - past events can never
   /// produce a notification.
   Future<void> scheduleExistingEvents({
     Iterable<DailyFile>? dailyFiles,
@@ -113,28 +126,24 @@ class FileMonitorService {
   }
 
   Future<void> _checkForFileChanges() async {
-    if (_dailiesDirectory == null) return;
+    final store = _storageService.store;
+    if (store == null) return;
 
     try {
-      final dir = StorageService().dailiesDirectory ?? _dailiesDirectory!;
-      final files = await dir
-          .list()
-          .where((entity) => entity is File && entity.path.endsWith('.md'))
-          .cast<File>()
-          .toList();
+      final entries = await store.list(StorageService.dailiesDirName);
 
       // Track which dates still have files
       final existingDates = <String>{};
       final today = _todayString();
 
-      for (final file in files) {
-        final fileName = path.basename(file.path);
-        final dateMatch = RegExp(r'(\d{8})\.md$').firstMatch(fileName);
+      for (final entry in entries) {
+        final dateMatch = _datePattern.firstMatch(entry.relPath);
         if (dateMatch == null) continue;
 
         final date = dateMatch.group(1)!;
         existingDates.add(date);
-        final lastModified = await file.lastModified();
+        final lastModified = entry.modified;
+        if (lastModified == null) continue;
 
         final previous = _lastModified[date];
         if (previous == null || previous.isBefore(lastModified)) {
@@ -146,7 +155,7 @@ class FileMonitorService {
             if (previous != null) onDailyFileChanged?.call(date);
             continue;
           }
-          await _handleFileChange(date, file.path);
+          await _handleFileChange(date, entry.relPath);
         }
       }
 
@@ -173,10 +182,10 @@ class FileMonitorService {
     _recentlyScheduledDates[date] = DateTime.now();
   }
 
-  Future<void> _handleFileChange(String date, String filePath) async {
+  Future<void> _handleFileChange(String date, String relPath) async {
     try {
       // Let the provider refresh its in-memory copy regardless of the
-      // notification debounce — for its own writes this is a cheap no-op.
+      // notification debounce - for its own writes this is a cheap no-op.
       onDailyFileChanged?.call(date);
 
       // Skip if DailyFileProvider just scheduled notifications for this date
@@ -191,13 +200,12 @@ class FileMonitorService {
 
       Log.i('📁 FileMonitorService: File changed - $date');
 
-      final file = File(filePath);
-      if (!file.existsSync()) {
+      final content = await _storageService.store?.read(relPath);
+      if (content == null) {
         Log.w('📁 FileMonitorService: File no longer exists - $date');
         return;
       }
 
-      final content = await file.readAsString();
       await _scheduleNotificationsForDate(date, content);
     } catch (e) {
       Log.e('❌ FileMonitorService: Error handling file change', error: e);
@@ -205,32 +213,27 @@ class FileMonitorService {
   }
 
   Future<void> _scheduleExistingEvents() async {
-    if (_dailiesDirectory == null) return;
+    final store = _storageService.store;
+    if (store == null) return;
 
     try {
-      final dir = StorageService().dailiesDirectory ?? _dailiesDirectory!;
       Log.i(
           '📁 FileMonitorService: Scheduling notifications for existing events...');
 
       // Review existing notifications first to remove invalid ones
-      await _notificationService.reviewNotifications(dir);
+      await _notificationService.reviewNotifications();
 
-      final files = await dir
-          .list()
-          .where((entity) => entity is File && entity.path.endsWith('.md'))
-          .cast<File>()
-          .toList();
+      final entries = await store.list(StorageService.dailiesDirName);
 
       final today = _todayString();
       int scheduledCount = 0;
-      for (final file in files) {
-        final fileName = path.basename(file.path);
-        final dateMatch = RegExp(r'(\d{8})\.md$').firstMatch(fileName);
+      for (final entry in entries) {
+        final dateMatch = _datePattern.firstMatch(entry.relPath);
         if (dateMatch == null) continue;
 
         final date = dateMatch.group(1)!;
         if (date.compareTo(today) < 0) continue;
-        final content = await file.readAsString();
+        final content = await store.read(entry.relPath) ?? '';
 
         if (content.isNotEmpty) {
           await _scheduleNotificationsForDate(date, content);
@@ -247,15 +250,15 @@ class FileMonitorService {
 
   Future<void> _scheduleExistingEventsFromFiles(
       Iterable<DailyFile> dailyFiles) async {
-    if (_dailiesDirectory == null) return;
+    final store = _storageService.store;
+    if (store == null) return;
 
     try {
-      final dir = StorageService().dailiesDirectory ?? _dailiesDirectory!;
       Log.i(
           '📁 FileMonitorService: Scheduling notifications from ${dailyFiles.length} cached daily files...');
 
       // Review existing notifications first to remove invalid ones
-      await _notificationService.reviewNotifications(dir);
+      await _notificationService.reviewNotifications();
 
       final today = _todayString();
       int scheduledCount = 0;
@@ -265,8 +268,8 @@ class FileMonitorService {
 
         // Track mtime so the change monitor won't think this file is "new".
         try {
-          _lastModified[dailyFile.date] =
-              await File(dailyFile.path).lastModified();
+          final mtime = await store.modified(dailyFile.path);
+          if (mtime != null) _lastModified[dailyFile.date] = mtime;
         } catch (_) {}
 
         await _scheduleNotificationsForDate(dailyFile.date, dailyFile.content);

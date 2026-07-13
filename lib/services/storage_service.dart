@@ -1,72 +1,114 @@
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
+import 'package:planova/services/file_store/file_store.dart';
+import 'package:planova/services/file_store/io_file_store.dart';
+import 'package:planova/services/file_store/saf_file_store.dart';
 import 'package:planova/utils/logger.dart';
 
+export 'package:planova/services/file_store/file_store.dart'
+    show FileStore, StoreEntry;
+
+/// Owns the active [FileStore] (the user's storage root) and the app-private
+/// location used for disk caches.
+///
+/// Storage roots, by priority:
+///  1. SAF document tree (Android custom folder - Syncthing, Dropbox, …),
+///     addressed through a persisted URI grant, no storage permission;
+///  2. raw custom path (desktop);
+///  3. default: `<app documents>/Org` (private, no permission).
+///
+/// All user files are addressed by store-relative paths such as
+/// `dailies/20260713.md` or `notes/projects/planova.md`.
 class StorageService {
   static final StorageService _instance = StorageService._internal();
   factory StorageService() => _instance;
   StorageService._internal();
 
-  Directory? _documentsDirectory;
-  Directory? _orgDirectory;
-  Directory? _dailiesDirectory;
-  Directory? _archivesDirectory;
-  Directory? _notesDirectory;
+  static const String dailiesDirName = 'dailies';
+  static const String archivesDirName = 'archives';
+  static const String notesDirName = 'notes';
 
-  Directory? get documentsDirectory => _documentsDirectory;
-  Directory? get orgDirectory => _orgDirectory;
-  Directory? get dailiesDirectory => _dailiesDirectory;
-  Directory? get archivesDirectory => _archivesDirectory;
-  Directory? get notesDirectory => _notesDirectory;
+  FileStore? _store;
+  Directory? _privateRoot;
 
-  /// Initialize directories with optional custom path
-  Future<void> initializeDirectories(String? customPath) async {
-    Log.i('📁 StorageService: Initializing directories...');
+  /// Set when a configured SAF tree is no longer accessible (grant revoked,
+  /// folder deleted). The UI should prompt the user to pick the folder again.
+  bool storageAccessLost = false;
+
+  FileStore? get store => _store;
+  bool get isInitialized => _store != null;
+
+  /// Human-readable description of the active storage root.
+  String get storageDescription =>
+      _store?.rootDescription ?? 'Not initialized';
+
+  /// Relative daily file path for a YYYYMMDD [date].
+  static String dailyPath(String date) => '$dailiesDirName/$date.md';
+
+  /// Relative note path for a path relative to the notes directory.
+  static String notePath(String relativeToNotes) =>
+      '$notesDirName/${normalizeRelPath(relativeToNotes)}';
+
+  Future<void> initializeDirectories({
+    String? customPath,
+    String? safTreeUri,
+    String? safDisplayName,
+  }) async {
+    Log.i('📁 StorageService: Initializing storage root...');
+    _privateRoot ??= await getApplicationDocumentsDirectory();
+    storageAccessLost = false;
+
+    if (safTreeUri != null) {
+      if (await _safAccessible(safTreeUri)) {
+        _store = SafFileStore(safTreeUri, displayName: safDisplayName);
+      } else {
+        Log.e('❌ StorageService: Lost access to SAF tree $safTreeUri');
+        storageAccessLost = true;
+        _store = _defaultStore();
+      }
+    } else if (customPath != null) {
+      final dir = Directory(customPath);
+      if (await dir.exists() && await _isWritable(dir)) {
+        _store = IoFileStore(dir);
+      } else {
+        Log.e('❌ StorageService: Custom path not writable: $customPath');
+        storageAccessLost = true;
+        _store = _defaultStore();
+      }
+    } else {
+      _store = _defaultStore();
+    }
 
     try {
-      if (customPath != null) {
-        Log.d('📁 StorageService: Using custom storage path: $customPath');
-        final customDir = Directory(customPath);
-        if (await customDir.exists()) {
-          // Test write permissions
-          if (await _isWritable(customDir)) {
-            _orgDirectory = customDir;
-          } else {
-            Log.e('❌ StorageService: Custom storage path is not writable',
-                error: 'Permission denied');
-            await _useDefaultDirectory();
-          }
-        } else {
-          Log.e('❌ StorageService: Custom storage path does not exist',
-              error: 'Path not found');
-          await _useDefaultDirectory();
-        }
-      } else {
-        await _useDefaultDirectory();
-      }
-
-      _dailiesDirectory = Directory('${_orgDirectory!.path}/dailies');
-      _archivesDirectory = Directory('${_orgDirectory!.path}/archives');
-      _notesDirectory = Directory('${_orgDirectory!.path}/notes');
-
-      await _createDirectories();
-      Log.i('📁 StorageService: Directory initialization completed');
+      await _store!.ensureDirectory(dailiesDirName);
+      await _store!.ensureDirectory(archivesDirName);
+      await _store!.ensureDirectory(notesDirName);
     } catch (e) {
-      Log.e('❌ StorageService: Error initializing directories', error: e);
-      // Fallback to default
-      await _useDefaultDirectory();
-      _dailiesDirectory = Directory('${_orgDirectory!.path}/dailies');
-      _archivesDirectory = Directory('${_orgDirectory!.path}/archives');
-      _notesDirectory = Directory('${_orgDirectory!.path}/notes');
-      await _createDirectories();
+      Log.e('❌ StorageService: Cannot create base directories, '
+          'falling back to default root', error: e);
+      storageAccessLost = true;
+      _store = _defaultStore();
+      await _store!.ensureDirectory(dailiesDirName);
+      await _store!.ensureDirectory(archivesDirName);
+      await _store!.ensureDirectory(notesDirName);
     }
+
+    await _cleanupLegacyCaches();
+    Log.i('📁 StorageService: Storage root ready '
+        '(${_store!.rootDescription})');
   }
 
-  Future<void> _useDefaultDirectory() async {
-    Log.d('📁 StorageService: Using default documents directory');
-    _documentsDirectory = await getApplicationDocumentsDirectory();
-    _orgDirectory = Directory('${_documentsDirectory!.path}/Org');
+  IoFileStore _defaultStore() =>
+      IoFileStore(Directory('${_privateRoot!.path}/Org'));
+
+  Future<bool> _safAccessible(String treeUri) async {
+    try {
+      return await SafFileStore.hasAccess(treeUri);
+    } catch (e) {
+      Log.e('❌ StorageService: SAF access check failed', error: e);
+      return false;
+    }
   }
 
   Future<bool> _isWritable(Directory dir) async {
@@ -75,338 +117,28 @@ class StorageService {
       await testFile.writeAsString('test');
       await testFile.delete();
       return true;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
 
-  Future<void> _createDirectories() async {
-    await _orgDirectory!.create(recursive: true);
-    await _dailiesDirectory!.create(recursive: true);
-    await _archivesDirectory!.create(recursive: true);
-    await _notesDirectory!.create(recursive: true);
-  }
+  /// Repository disk caches live in the app-private directory: always
+  /// directly writable, never synced to the user's folder by tools like
+  /// Syncthing, and safe to read/write from isolates with plain dart:io.
+  String cacheFilePath(String cacheFileName) =>
+      '${_privateRoot!.path}/$cacheFileName';
 
-  /// List files in a directory with specific extension
-  List<File> listFiles(Directory dir,
-      {String extension = '.md', bool recursive = false}) {
-    if (!dir.existsSync()) return [];
-    return dir
-        .listSync(recursive: recursive)
-        .where((entity) => entity is File && entity.path.endsWith(extension))
-        .cast<File>()
-        .toList();
-  }
-
-  /// Async variant of [listFiles] — doesn't block the UI isolate on
-  /// directory I/O.
-  Future<List<File>> listFilesAsync(Directory dir,
-      {String extension = '.md', bool recursive = false}) async {
-    if (!await dir.exists()) return [];
-    return dir
-        .list(recursive: recursive)
-        .where((entity) => entity is File && entity.path.endsWith(extension))
-        .cast<File>()
-        .toList();
-  }
-
-  /// Read file content
-  Future<String> readFile(File file) async {
-    try {
-      if (!file.existsSync()) return '';
-      return await file.readAsString();
-    } catch (e) {
-      Log.e('❌ StorageService: Error reading file ${file.path}', error: e);
-      return '';
-    }
-  }
-
-  /// Write content to file atomically: write to a temp file in the same
-  /// directory, flush, then rename over the target. A crash mid-write can
-  /// never leave a truncated file behind — the user's plaintext files ARE
-  /// the data.
-  Future<void> writeFile(File file, String content) async {
-    final tempFile = File('${file.path}.tmp');
-    try {
-      await tempFile.writeAsString(content, flush: true);
-      await tempFile.rename(file.path);
-      Log.d('💾 StorageService: Saved file ${file.path}');
-    } catch (e) {
-      Log.e('❌ StorageService: Error writing file ${file.path}', error: e);
+  /// Older versions wrote repository caches inside the user's Org folder.
+  /// Remove them so they stop being synced around (best effort, io roots
+  /// only - SAF trees never received them).
+  Future<void> _cleanupLegacyCaches() async {
+    final store = _store;
+    if (store is! IoFileStore) return;
+    for (final name in ['._daily_cache.json', '._note_cache.json']) {
       try {
-        if (await tempFile.exists()) await tempFile.delete();
+        final legacy = File('${store.root.path}/$name');
+        if (await legacy.exists()) await legacy.delete();
       } catch (_) {}
-      rethrow;
     }
-  }
-
-  /// Delete file
-  Future<void> deleteFile(File file) async {
-    try {
-      if (file.existsSync()) {
-        await file.delete();
-        Log.d('🗑️ StorageService: Deleted file ${file.path}');
-      }
-    } catch (e) {
-      Log.e('❌ StorageService: Error deleting file ${file.path}', error: e);
-      rethrow;
-    }
-  }
-
-  /// Get file modification time safely
-  DateTime? getFileModifiedTime(File file) {
-    try {
-      if (file.existsSync()) {
-        return file.lastModifiedSync();
-      }
-      return null;
-    } catch (e) {
-      Log.e(
-          '❌ StorageService: Error getting modification time for ${file.path}',
-          error: e);
-      return null;
-    }
-  }
-
-  /// Check if file exists and get basic info
-  Future<FileInfo?> getFileInfo(File file) async {
-    try {
-      if (!file.existsSync()) {
-        return null;
-      }
-
-      final stat = await file.stat();
-      return FileInfo(
-        path: file.path,
-        size: stat.size,
-        modified: stat.modified,
-        accessed: stat.accessed,
-        type: stat.type,
-      );
-    } catch (e) {
-      Log.e('❌ StorageService: Error getting file info for ${file.path}',
-          error: e);
-      return null;
-    }
-  }
-
-  /// Get directory info including file count
-  Future<DirectoryInfo?> getDirectoryInfo(Directory dir) async {
-    try {
-      if (!dir.existsSync()) {
-        return null;
-      }
-
-      final entities = await dir.list().toList();
-      int fileCount = 0;
-      int dirCount = 0;
-      int totalSize = 0;
-
-      for (final entity in entities) {
-        if (entity is File) {
-          fileCount++;
-          try {
-            final stat = await entity.stat();
-            totalSize += stat.size;
-          } catch (e) {
-            Log.w('⚠️ StorageService: Could not get size for ${entity.path}');
-          }
-        } else if (entity is Directory) {
-          dirCount++;
-        }
-      }
-
-      return DirectoryInfo(
-        path: dir.path,
-        fileCount: fileCount,
-        directoryCount: dirCount,
-        totalSize: totalSize,
-      );
-    } catch (e) {
-      Log.e('❌ StorageService: Error getting directory info for ${dir.path}',
-          error: e);
-      return null;
-    }
-  }
-
-  /// Batch file operations for better performance
-  Future<BatchOperationResult> batchWrite(
-      List<FileOperation> operations) async {
-    final result = BatchOperationResult(
-      successful: [],
-      failed: [],
-    );
-
-    Log.d(
-        '💾 StorageService: Starting batch write operation with ${operations.length} files');
-
-    final stopwatch = Stopwatch()..start();
-
-    try {
-      // Process operations in parallel batches to avoid overwhelming the system
-      const batchSize = 10;
-      for (int i = 0; i < operations.length; i += batchSize) {
-        final batch = operations.skip(i).take(batchSize).toList();
-
-        final futures = batch.map((op) => _performFileOperation(op));
-        final batchResults = await Future.wait(futures);
-
-        for (final batchResult in batchResults) {
-          if (batchResult.success) {
-            result.successful.add(batchResult.operation!);
-          } else {
-            result.failed.add(FileOperationFailure(
-              operation: batchResult.operation!,
-              error: batchResult.error ?? 'Unknown error',
-            ));
-          }
-        }
-      }
-
-      stopwatch.stop();
-      Log.i(
-          '💾 StorageService: Batch operation completed in ${stopwatch.elapsedMilliseconds}ms - ${result.successful.length} successful, ${result.failed.length} failed');
-
-      return result;
-    } catch (e) {
-      Log.e('❌ StorageService: Error in batch write operation', error: e);
-
-      // Add all operations as failed
-      result.failed.addAll(operations.map((op) => FileOperationFailure(
-            operation: op,
-            error: e.toString(),
-          )));
-
-      return result;
-    }
-  }
-
-  Future<OperationResult> _performFileOperation(FileOperation operation) async {
-    try {
-      final file = File(operation.path);
-
-      switch (operation.type) {
-        case FileOperationType.write:
-          await writeFile(file, operation.content ?? '');
-          break;
-        case FileOperationType.delete:
-          if (file.existsSync()) {
-            await file.delete();
-          }
-          break;
-        case FileOperationType.append:
-          await file.writeAsString(operation.content ?? '',
-              mode: FileMode.append);
-          break;
-      }
-
-      return OperationResult.success(operation);
-    } catch (e) {
-      Log.e(
-          '❌ StorageService: Error performing file operation ${operation.type} on ${operation.path}',
-          error: e);
-      return OperationResult.failure(operation, e.toString());
-    }
-  }
-}
-
-/// File information class
-class FileInfo {
-  final String path;
-  final int size;
-  final DateTime modified;
-  final DateTime accessed;
-  final FileSystemEntityType type;
-
-  FileInfo({
-    required this.path,
-    required this.size,
-    required this.modified,
-    required this.accessed,
-    required this.type,
-  });
-}
-
-/// Directory information class
-class DirectoryInfo {
-  final String path;
-  final int fileCount;
-  final int directoryCount;
-  final int totalSize;
-
-  DirectoryInfo({
-    required this.path,
-    required this.fileCount,
-    required this.directoryCount,
-    required this.totalSize,
-  });
-}
-
-/// File operation for batch processing
-class FileOperation {
-  final String path;
-  final FileOperationType type;
-  final String? content;
-
-  FileOperation({
-    required this.path,
-    required this.type,
-    this.content,
-  });
-
-  FileOperation.write(String path, String content)
-      : this(path: path, type: FileOperationType.write, content: content);
-
-  FileOperation.append(String path, String content)
-      : this(path: path, type: FileOperationType.append, content: content);
-
-  FileOperation.delete(String path)
-      : this(path: path, type: FileOperationType.delete);
-}
-
-/// File operation type
-enum FileOperationType {
-  write,
-  append,
-  delete,
-}
-
-/// Batch operation result
-class BatchOperationResult {
-  final List<FileOperation> successful;
-  final List<FileOperationFailure> failed;
-
-  BatchOperationResult({
-    required this.successful,
-    required this.failed,
-  });
-}
-
-/// File operation failure
-class FileOperationFailure {
-  final FileOperation operation;
-  final String error;
-
-  FileOperationFailure({
-    required this.operation,
-    required this.error,
-  });
-}
-
-/// Individual operation result
-class OperationResult {
-  final FileOperation? operation;
-  final bool success;
-  final String? error;
-
-  OperationResult._({this.operation, required this.success, this.error});
-
-  factory OperationResult.success(FileOperation operation) {
-    return OperationResult._(operation: operation, success: true);
-  }
-
-  factory OperationResult.failure(FileOperation operation, String error) {
-    return OperationResult._(
-        operation: operation, success: false, error: error);
   }
 }

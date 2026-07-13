@@ -126,8 +126,10 @@ class Log {
     final fullMessage =
         '$timestamp: $levelStr: ${AppConstants.appTag} $tagStr$message';
 
-    // Console logging
-    if (_enableConsoleLogging && kDebugMode) {
+    // Console logging. Also active in release builds (INFO level and up,
+    // per _currentLevel): being able to read startup/storage logs from a
+    // device via logcat is worth the small overhead.
+    if (_enableConsoleLogging) {
       if (level == LogLevel.error) {
         debugPrint(fullMessage);
         if (error != null) debugPrint('Error: $error');

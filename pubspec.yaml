@@ -1,7 +1,7 @@
 name: planova
 description: A future proof opinionated software written with flutter to manage your life in plaintext - todo, agenda, journal and notes.
 publish_to: 'none'
-version: 1.3.2+3
+version: 1.4.0+4
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

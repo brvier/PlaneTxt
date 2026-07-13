@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.4.0] - 2026-07-13
+
+### Added
+- Progress banner while the app builds its cache on first launch or after changing the storage folder
+
+### Changed
+- Custom storage folder on Android now uses the system folder picker (Storage Access Framework): syncing with Syncthing, Dropbox, etc. works without any special permission
+- Files on SAF folders are read in bulk (one directory query per batch): full startup goes from about a minute to under 3 seconds on a 300-file folder
+- Notification review reuses in-memory content instead of re-reading every daily file
+- INFO logs are enabled in release builds to allow on-device diagnostics
+- Repository caches moved to app-private storage, so they are no longer synced along with your notes
+- File monitoring falls back to periodic polling on SAF folders (native events are used elsewhere)
+
+### Removed
+- "All files access" (MANAGE_EXTERNAL_STORAGE) and legacy storage permissions, per Play Store policy
+
 ## [1.3.2] - 2026-07-13
 
 ### Fixed

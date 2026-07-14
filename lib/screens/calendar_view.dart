@@ -275,7 +275,10 @@ class _CalendarViewState extends State<CalendarView> {
 
     showDialog(
       context: context,
-      builder: (context) => RefillDialog(
+      // NOTE: _performRefill must get the view's context, not the dialog's:
+      // the dialog pops right after onRefill, so its context unmounts during
+      // the first await and every context.mounted guard would skip the saves.
+      builder: (dialogContext) => RefillDialog(
         undoneTodos: undoneTodos,
         onRefill: (selectedTodos) =>
             _performRefill(context, dailyFileProvider, selectedTodos, currentDate),
@@ -304,9 +307,9 @@ class _CalendarViewState extends State<CalendarView> {
           lines.removeWhere((line) => line.trim() == todo.content.trim());
           newSourceContent = lines.join('\n');
         }
-        if (context.mounted) {
-          dailyFileProvider.saveDailyFile(context, entry.key, newSourceContent);
-        }
+        if (!context.mounted) return;
+        await dailyFileProvider.saveDailyFile(
+            context, entry.key, newSourceContent);
       }
     }
 
@@ -316,7 +319,9 @@ class _CalendarViewState extends State<CalendarView> {
     }
 
     if (context.mounted) {
-      dailyFileProvider.saveDailyFile(context, targetDate, targetContent);
+      await dailyFileProvider.saveDailyFile(context, targetDate, targetContent);
+    }
+    if (context.mounted) {
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

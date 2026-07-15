@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.4.1] - 2026-07-15
+
+### Fixed
+- Refill now saves reliably by using the view's context instead of the dialog's, which unmounts before the async saves complete
+
 ## [1.4.0] - 2026-07-13
 
 ### Added

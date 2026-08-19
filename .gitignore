@@ -74,3 +74,6 @@ app.*.map.json
 
 # Plugin symlinks (generated)
 **/.plugin_symlinks/
+
+# Android build artifacts
+/android/build/

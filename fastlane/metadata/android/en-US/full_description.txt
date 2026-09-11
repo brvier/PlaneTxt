@@ -1,0 +1,20 @@
+Planova is an opinionated, future-proof app to manage your life in plain text: todo, agenda, journal and notes.
+
+Everything is stored as Markdown files in a folder you choose. One daily file per day holds your journal, todos and events; notes live in subfolders. There is no database and no lock-in: sync the folder with Syncthing, Dropbox or anything else, and edit the files with any text editor.
+
+Features:
+
+- Month calendar with the Markdown content of the selected day below it
+- Check and uncheck todos with a double tap
+- Refill: carry unfinished todos over to today
+- Notes browser with search and rename
+- Home screen widget showing today's agenda and todos
+- Reminders through local notifications
+- Light and dark themes
+- No account, no tracking, no network access
+
+File layout:
+
+- dailies/20250128.md
+- archives/
+- notes/Work/project.md

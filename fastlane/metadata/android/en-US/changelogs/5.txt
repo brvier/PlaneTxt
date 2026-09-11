@@ -1,0 +1,4 @@
+- Refill now saves reliably
+- Custom storage folder uses the system folder picker (no storage permission needed)
+- Much faster startup on large folders
+- Progress banner while the cache is being built

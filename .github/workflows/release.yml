@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.6
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Write signing config
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload.keystore
+          cat > android/key.properties <<EOT
+          storeFile=upload.keystore
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          EOT
+
+      - name: Build APKs
+        run: flutter build apk --release --split-per-abi
+
+      - name: Rename APKs
+        run: |
+          cd build/app/outputs/flutter-apk
+          for f in app-*-release.apk; do
+            abi=${f#app-}; abi=${abi%-release.apk}
+            mv "$f" "planova-${GITHUB_REF_NAME}-${abi}.apk"
+          done
+          sha256sum planova-*.apk > SHA256SUMS.txt
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/app/outputs/flutter-apk/planova-*.apk
+            build/app/outputs/flutter-apk/SHA256SUMS.txt
+          generate_release_notes: true

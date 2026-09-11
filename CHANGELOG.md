@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.2] - 2026-09-11
+
+### Added
+- Fastlane metadata, description and phone screenshots for the F-Droid and IzzyOnDroid listings
+- GitHub Actions release workflow: builds signed per-ABI APKs on every version tag and attaches them to the GitHub release
+- Screenshot generation script with demo data (`tool/screenshots/`)
+
+### Changed
+- README rewritten with screenshots, feature list, build instructions, updated roadmap and a link to the Omarchy shell plugin
+- MIT license added, Android build artifacts untracked
+
+### Fixed
+- Android build: pin androidx.work to 2.9.1 so home_widget compiles again (JVM target mismatch with newer WorkManager releases)
+
 ## [1.4.1] - 2026-07-15
 
 ### Fixed

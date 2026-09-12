@@ -49,6 +49,13 @@ android {
         }
     }
 
+    // Do not embed the Play Store dependency metadata block: F-Droid rejects
+    // APKs that carry it, and it serves no purpose outside Google Play.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
     buildTypes {
         release {
             // Falls back to debug signing when key.properties is absent,

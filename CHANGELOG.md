@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.3] - 2026-09-12
+
+### Fixed
+- App label is now "Planova" instead of "planova"
+- The APK no longer embeds the Play Store dependency metadata signing block, which F-Droid rejects
+
 ## [1.4.2] - 2026-09-11
 
 ### Added

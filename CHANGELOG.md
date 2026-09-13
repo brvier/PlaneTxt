@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.4.4] - 2026-09-13
+
+### Changed
+- Split APKs now carry a per-ABI versionCode (base code x 10 + 1 for armeabi-v7a, + 2 for arm64-v8a, + 3 for x86_64), as required by F-Droid. The AAB keeps the base code.
+
 ## [1.4.3] - 2026-09-12
 
 ### Fixed

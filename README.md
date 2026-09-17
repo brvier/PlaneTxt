@@ -73,7 +73,7 @@ The section headers are matched by configurable patterns, so you can rename them
 
 ## Install
 
-- **Android**: APKs are attached to each [GitHub release](https://github.com/brvier/PlaneTxtFlutter/releases). Play Store and F-Droid listings are in progress.
+- **Android**: APKs are attached to each [GitHub release](https://github.com/brvier/PlaneTxt/releases). Play Store and F-Droid listings are in progress.
 - **Linux**: build from source, see below. Desktop entries are provided in `planetxt.desktop` and `planetxt-portable.desktop`. Omarchy users can also install the [PlaneTxtQuickShell](https://github.com/brvier/PlaneTxtQuickShell) bar plugin.
 - **iOS, macOS, Windows, web**: the Flutter project builds for these targets, but they are not tested regularly.
 
@@ -120,7 +120,7 @@ Next:
 
 ## Contributing
 
-Issues and pull requests are welcome on [GitHub](https://github.com/brvier/PlaneTxtFlutter). The `AGENTS.md` file describes the project layout and the commands used for analysis and tests. Screenshots for the store listings are regenerated with `tool/screenshots/take_screenshots.sh`.
+Issues and pull requests are welcome on [GitHub](https://github.com/brvier/PlaneTxt). The `AGENTS.md` file describes the project layout and the commands used for analysis and tests. Screenshots for the store listings are regenerated with `tool/screenshots/take_screenshots.sh`.
 
 ## License
 

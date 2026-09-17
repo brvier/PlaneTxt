@@ -1,7 +1,7 @@
 name: planetxt
 description: A future proof opinionated software written with flutter to manage your life in plaintext - todo, agenda, journal and notes.
 publish_to: 'none'
-version: 2.0.0+9
+version: 2.0.1+10
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

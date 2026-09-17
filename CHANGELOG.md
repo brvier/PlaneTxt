@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.1] - 2026-09-17
+
+### Fixed
+- `pubspec.lock` matches the pinned Flutter 3.44.6 again, so builds with `--enforce-lockfile` (F-Droid) succeed. CI and releases now enforce the lockfile.
+
+### Added
+- Release workflow builds the Play Store app bundle (AAB) as a workflow artifact.
+
 ## [2.0.0] - 2026-09-17
 
 ### Changed

@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.0.0] - 2026-09-17
 
 ### Changed
 - Renamed from Planova to PlaneTxt, as the Planova name was already used by a similar product. The application id is now `fr.rvier.planetxt` on Android, iOS and Linux, so existing Android installs do not upgrade in place: install PlaneTxt, then point it at the same storage folder. On Linux, preferences are copied from `~/.local/share/fr.rvier.planova/` on first launch.

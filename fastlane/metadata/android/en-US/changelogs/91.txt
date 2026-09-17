@@ -1,0 +1,2 @@
+- Planova is now PlaneTxt: new name, new application id (fr.rvier.planetxt)
+- Existing Planova installs do not upgrade: install PlaneTxt and select the same storage folder

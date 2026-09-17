@@ -25,7 +25,7 @@ jobs:
           cache: true
 
       - name: Install dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Write signing config
         env:
@@ -44,6 +44,15 @@ jobs:
 
       - name: Build APKs
         run: flutter build apk --release --split-per-abi
+
+      - name: Build app bundle
+        run: flutter build appbundle --release
+
+      - name: Upload app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: planetxt-${{ github.ref_name }}-aab
+          path: build/app/outputs/bundle/release/app-release.aab
 
       - name: Rename APKs
         run: |

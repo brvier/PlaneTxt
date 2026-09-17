@@ -1,7 +1,7 @@
-import 'package:planova/models/daily_file.dart';
-import 'package:planova/repositories/base_repository.dart';
-import 'package:planova/services/storage_service.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/models/daily_file.dart';
+import 'package:planetxt/repositories/base_repository.dart';
+import 'package:planetxt/services/storage_service.dart';
+import 'package:planetxt/utils/logger.dart';
 
 class DailyRepository extends BaseRepository<DailyFile> {
   static final _datePattern = RegExp(r'(\d{8})\.md$');

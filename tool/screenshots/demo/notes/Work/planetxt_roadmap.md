@@ -1,4 +1,4 @@
-# Planova roadmap
+# PlaneTxt roadmap
 
 ## Next release
 - Share a note from the notes view

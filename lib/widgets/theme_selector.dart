@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:planova/providers/theme_provider.dart';
-import 'package:planova/themes/app_themes.dart';
+import 'package:planetxt/providers/theme_provider.dart';
+import 'package:planetxt/themes/app_themes.dart';
 import 'package:provider/provider.dart';
 
 class ThemeSelector extends StatelessWidget {

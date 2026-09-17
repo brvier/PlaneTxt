@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:planova/models/note_file.dart';
+import 'package:planetxt/models/note_file.dart';
 
 class NoteListItem extends StatelessWidget {
   final NoteFile note;

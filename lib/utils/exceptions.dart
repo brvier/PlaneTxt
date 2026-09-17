@@ -1,12 +1,12 @@
-import 'package:planova/constants/app_constants.dart';
+import 'package:planetxt/constants/app_constants.dart';
 
-/// Base exception for all Planova-specific errors
-abstract class PlanovaException implements Exception {
+/// Base exception for all PlaneTxt-specific errors
+abstract class PlaneTxtException implements Exception {
   final String message;
   final String? details;
   final dynamic originalError;
 
-  const PlanovaException(
+  const PlaneTxtException(
     this.message, {
     this.details,
     this.originalError,
@@ -26,7 +26,7 @@ abstract class PlanovaException implements Exception {
 }
 
 /// Exception thrown when initialization fails
-class InitializationException extends PlanovaException {
+class InitializationException extends PlaneTxtException {
   const InitializationException(
     super.message, {
     super.details,
@@ -35,7 +35,7 @@ class InitializationException extends PlanovaException {
 }
 
 /// Exception thrown when file operations fail
-class FileOperationException extends PlanovaException {
+class FileOperationException extends PlaneTxtException {
   final String? filePath;
 
   const FileOperationException(
@@ -47,7 +47,7 @@ class FileOperationException extends PlanovaException {
 }
 
 /// Exception thrown when directory operations fail
-class DirectoryException extends PlanovaException {
+class DirectoryException extends PlaneTxtException {
   final String? directoryPath;
 
   const DirectoryException(
@@ -59,7 +59,7 @@ class DirectoryException extends PlanovaException {
 }
 
 /// Exception thrown when permission operations fail
-class PermissionException extends PlanovaException {
+class PermissionException extends PlaneTxtException {
   final String? permission;
 
   const PermissionException(
@@ -71,7 +71,7 @@ class PermissionException extends PlanovaException {
 }
 
 /// Exception thrown when parsing operations fail
-class ParseException extends PlanovaException {
+class ParseException extends PlaneTxtException {
   final String? content;
 
   const ParseException(
@@ -83,7 +83,7 @@ class ParseException extends PlanovaException {
 }
 
 /// Exception thrown when validation fails
-class ValidationException extends PlanovaException {
+class ValidationException extends PlaneTxtException {
   final String? field;
   final dynamic value;
 
@@ -97,7 +97,7 @@ class ValidationException extends PlanovaException {
 }
 
 /// Exception thrown when network operations fail
-class NetworkException extends PlanovaException {
+class NetworkException extends PlaneTxtException {
   final String? url;
 
   const NetworkException(
@@ -109,7 +109,7 @@ class NetworkException extends PlanovaException {
 }
 
 /// Exception thrown when widget operations fail
-class WidgetException extends PlanovaException {
+class WidgetException extends PlaneTxtException {
   final String? widgetId;
 
   const WidgetException(
@@ -121,7 +121,7 @@ class WidgetException extends PlanovaException {
 }
 
 /// Exception thrown when notification operations fail
-class NotificationException extends PlanovaException {
+class NotificationException extends PlaneTxtException {
   final int? notificationId;
 
   const NotificationException(

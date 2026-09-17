@@ -1,15 +1,15 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:planova/services/file_store/file_store.dart';
-import 'package:planova/services/file_store/io_file_store.dart';
+import 'package:planetxt/services/file_store/file_store.dart';
+import 'package:planetxt/services/file_store/io_file_store.dart';
 
 void main() {
   late Directory tempDir;
   late IoFileStore store;
 
   setUp(() {
-    tempDir = Directory.systemTemp.createTempSync('planova_test_');
+    tempDir = Directory.systemTemp.createTempSync('planetxt_test_');
     store = IoFileStore(tempDir);
   });
 

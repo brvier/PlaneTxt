@@ -3,12 +3,12 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:planova/providers/daily_file_provider.dart';
-import 'package:planova/providers/directory_provider.dart';
-import 'package:planova/providers/note_file_provider.dart';
-import 'package:planova/providers/theme_provider.dart';
-import 'package:planova/services/file_monitor_service.dart';
-import 'package:planova/services/file_store/saf_file_store.dart';
+import 'package:planetxt/providers/daily_file_provider.dart';
+import 'package:planetxt/providers/directory_provider.dart';
+import 'package:planetxt/providers/note_file_provider.dart';
+import 'package:planetxt/providers/theme_provider.dart';
+import 'package:planetxt/services/file_monitor_service.dart';
+import 'package:planetxt/services/file_store/saf_file_store.dart';
 import 'package:provider/provider.dart';
 
 class StorageSection extends StatelessWidget {
@@ -56,7 +56,7 @@ class StorageSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Select where you want to store your Planova files:',
+              'Select where you want to store your PlaneTxt files:',
               style: TextStyle(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),

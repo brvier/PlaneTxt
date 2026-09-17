@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Regenerate the fastlane phone screenshots on a connected, unlocked Android
 # device using demo data. Installs a throwaway debug build with a different
-# application id, so the real Planova install and its data are never touched.
+# application id, so the real PlaneTxt install and its data are never touched.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-P=fr.rvier.planova.demo
+P=fr.rvier.planetxt.demo
 OUT=fastlane/metadata/android/en-US/images/phoneScreenshots
 GRADLE=android/app/build.gradle.kts
 
-sed -i 's/applicationId = "fr.rvier.planova"/applicationId = "'"$P"'"/' "$GRADLE"
+sed -i 's/applicationId = "fr.rvier.planetxt"/applicationId = "'"$P"'"/' "$GRADLE"
 trap 'git checkout -q -- "$GRADLE" pubspec.lock; adb shell svc power stayon false' EXIT
 flutter build apk --debug --target-platform android-arm64
 adb install -r build/app/outputs/flutter-apk/app-debug.apk

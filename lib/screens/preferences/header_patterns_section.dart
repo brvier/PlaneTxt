@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:planova/providers/theme_provider.dart';
+import 'package:planetxt/providers/theme_provider.dart';
 
 class HeaderPatternTile extends StatelessWidget {
   final IconData icon;

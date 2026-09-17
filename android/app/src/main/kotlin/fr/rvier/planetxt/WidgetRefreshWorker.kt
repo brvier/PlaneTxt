@@ -1,4 +1,4 @@
-package fr.rvier.planova
+package fr.rvier.planetxt
 
 import android.content.Context
 import android.util.Log
@@ -22,7 +22,7 @@ class WidgetRefreshWorker(appContext: Context, params: androidx.work.WorkerParam
 
     companion object {
         private const val TAG = "WidgetRefreshWorker"
-        private const val UNIQUE_WORK_NAME = "planova_widget_refresh"
+        private const val UNIQUE_WORK_NAME = "planetxt_widget_refresh"
 
         fun schedule(context: Context) {
             val request = PeriodicWorkRequestBuilder<WidgetRefreshWorker>(15, TimeUnit.MINUTES)

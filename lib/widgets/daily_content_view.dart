@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:planova/models/calendar_event.dart';
-import 'package:planova/providers/daily_file_provider.dart';
-import 'package:planova/utils/markdown_parser.dart';
+import 'package:planetxt/models/calendar_event.dart';
+import 'package:planetxt/providers/daily_file_provider.dart';
+import 'package:planetxt/utils/markdown_parser.dart';
 
 class DailyContentView extends StatelessWidget {
   final DailyFileProvider dailyFileProvider;

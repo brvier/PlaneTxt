@@ -1,4 +1,4 @@
-package fr.rvier.planova
+package fr.rvier.planetxt
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -47,8 +47,8 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
         private const val UPDATE_INTERVAL_MILLIS = 30L * 60L * 1000L // 30 minutes
         private const val REQUEST_CODE = 0
         private const val MIDNIGHT_REQUEST_CODE = 42
-        private const val ACTION_WIDGET_UPDATE = "fr.rvier.planova.WIDGET_UPDATE"
-        private const val ACTION_MIDNIGHT_REFRESH = "fr.rvier.planova.MIDNIGHT_REFRESH"
+        private const val ACTION_WIDGET_UPDATE = "fr.rvier.planetxt.WIDGET_UPDATE"
+        private const val ACTION_MIDNIGHT_REFRESH = "fr.rvier.planetxt.MIDNIGHT_REFRESH"
 
         /**
          * Check and update widget with data from files

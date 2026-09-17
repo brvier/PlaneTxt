@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:planova/utils/exceptions.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/utils/exceptions.dart';
+import 'package:planetxt/utils/logger.dart';
 
 /// Global error handler for the application
 class ErrorHandler {
@@ -47,7 +47,7 @@ class ErrorHandler {
   /// Handle application-specific exceptions
   static void handleException(
     BuildContext context,
-    PlanovaException exception, {
+    PlaneTxtException exception, {
     String? customMessage,
     VoidCallback? onRetry,
   }) {
@@ -64,7 +64,7 @@ class ErrorHandler {
   }
 
   /// Get user-friendly message for exceptions
-  static String _getUserFriendlyMessage(PlanovaException exception) {
+  static String _getUserFriendlyMessage(PlaneTxtException exception) {
     switch (exception.runtimeType) {
       case InitializationException _:
         return 'Failed to initialize the application. Please restart app.';
@@ -221,7 +221,7 @@ class CustomErrorWidget extends StatelessWidget {
   String _getErrorMessage() {
     final exception = errorDetails.exception;
 
-    if (exception is PlanovaException) {
+    if (exception is PlaneTxtException) {
       return ErrorHandler._getUserFriendlyMessage(exception);
     }
 

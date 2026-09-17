@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:io';
 
-import 'package:planova/providers/daily_file_provider.dart';
-import 'package:planova/providers/directory_provider.dart';
-import 'package:planova/providers/note_file_provider.dart';
-import 'package:planova/screens/calendar_view.dart';
-import 'package:planova/screens/notes_view.dart';
-import 'package:planova/screens/preferences_screen.dart';
-import 'package:planova/services/file_monitor_service.dart';
-import 'package:planova/services/intent_handler_service.dart';
-import 'package:planova/services/notification_service.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/providers/daily_file_provider.dart';
+import 'package:planetxt/providers/directory_provider.dart';
+import 'package:planetxt/providers/note_file_provider.dart';
+import 'package:planetxt/screens/calendar_view.dart';
+import 'package:planetxt/screens/notes_view.dart';
+import 'package:planetxt/screens/preferences_screen.dart';
+import 'package:planetxt/services/file_monitor_service.dart';
+import 'package:planetxt/services/intent_handler_service.dart';
+import 'package:planetxt/services/notification_service.dart';
+import 'package:planetxt/utils/logger.dart';
 import 'package:provider/provider.dart';
 
 class MainScreen extends StatefulWidget {

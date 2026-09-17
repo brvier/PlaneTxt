@@ -1,4 +1,4 @@
-package fr.rvier.planova
+package fr.rvier.planetxt
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
@@ -32,7 +32,7 @@ object WidgetDataManager {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
                 if (!alarmManager.canScheduleExactAlarms()) {
-                    val message = "Exact alarms disabled - please allow Planova"
+                    val message = "Exact alarms disabled - please allow PlaneTxt"
                     Log.w(TAG, message)
                     FileHelper.showWidgetError(context, message, triggerWidgetUpdate)
                 }
@@ -133,12 +133,12 @@ object WidgetDataManager {
             val widgetIds = widgetManager.getAppWidgetIds(
                 android.content.ComponentName(
                     context,
-                    PlanovaWidgetProvider::class.java
+                    PlaneTxtWidgetProvider::class.java
                 )
             )
             
             if (widgetIds.isNotEmpty()) {
-                val updateIntent = Intent(context, PlanovaWidgetProvider::class.java).apply {
+                val updateIntent = Intent(context, PlaneTxtWidgetProvider::class.java).apply {
                     action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, widgetIds)
                 }

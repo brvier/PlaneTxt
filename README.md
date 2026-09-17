@@ -1,10 +1,10 @@
-# Planova
+# PlaneTxt
 
 Todo, agenda, journal and notes in plain Markdown files.
 
-Planova is an opinionated, future-proof app to manage your life in plain text. Everything lives in a folder you own: one Markdown file per day for your events, todos and journal, plus a tree of notes. There is no database, no account, no network access. Sync the folder with Syncthing, Dropbox or anything else, and open the files with any editor.
+PlaneTxt is an opinionated, future-proof app to manage your life in plain text. Everything lives in a folder you own: one Markdown file per day for your events, todos and journal, plus a tree of notes. There is no database, no account, no network access. Sync the folder with Syncthing, Dropbox or anything else, and open the files with any editor.
 
-Planova is the successor of MOrg: it replaces the calendar.txt and todo.txt pair with structured dailies that are easier to scale, search and sync.
+PlaneTxt (formerly Planova) is the successor of MOrg: it replaces the calendar.txt and todo.txt pair with structured dailies that are easier to scale, search and sync.
 
 <p align="center">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="30%" alt="Calendar with today's events and tasks" />
@@ -26,7 +26,7 @@ Planova is the successor of MOrg: it replaces the calendar.txt and todo.txt pair
 - **Quick add**: add an event or a todo to a day without opening the editor.
 - **Notes**: a searchable list of notes organized in subfolders, with rename and delete.
 - **Markdown editor**: formatting toolbar, auto-indent and todo handling.
-- **ICS import**: share an .ics file to Planova to merge its events into the right days.
+- **ICS import**: share an .ics file to PlaneTxt to merge its events into the right days.
 - **Home screen widget** (Android): today's events and todos, with light and dark styles and adjustable transparency.
 - **Themes**: system, light or dark mode, with Gruvbox, Nord, Adwaita, Monokai and Everforest color themes.
 - **Your storage, your rules**: keep the default app folder or pick any folder through the system picker. No storage permission is needed.
@@ -34,7 +34,7 @@ Planova is the successor of MOrg: it replaces the calendar.txt and todo.txt pair
 
 ## Omarchy shell plugin
 
-On Linux, the same folder can drive your desktop bar. [PlanovaQuickShell](https://github.com/brvier/PlanovaQuickShell) is an [Omarchy](https://omarchy.org) 4 shell plugin that replaces the date and time widget with a Planova-backed panel. The clock stays, with a badge counting today's undone todos. Clicking it opens a calendar with per-day indicators, the selected day's events, tasks and notes, quick add, refill, and a notes browser. Point it at the folder you sync from the phone and both stay in step.
+On Linux, the same folder can drive your desktop bar. [PlaneTxtQuickShell](https://github.com/brvier/PlaneTxtQuickShell) is an [Omarchy](https://omarchy.org) 4 shell plugin that replaces the date and time widget with a PlaneTxt-backed panel. The clock stays, with a badge counting today's undone todos. Clicking it opens a calendar with per-day indicators, the selected day's events, tasks and notes, quick add, refill, and a notes browser. Point it at the folder you sync from the phone and both stay in step.
 
 ## File structure
 
@@ -73,8 +73,8 @@ The section headers are matched by configurable patterns, so you can rename them
 
 ## Install
 
-- **Android**: APKs are attached to each [GitHub release](https://github.com/brvier/PlanovaFlutter/releases). Play Store and F-Droid listings are in progress.
-- **Linux**: build from source, see below. Desktop entries are provided in `planova.desktop` and `planova-portable.desktop`. Omarchy users can also install the [PlanovaQuickShell](https://github.com/brvier/PlanovaQuickShell) bar plugin.
+- **Android**: APKs are attached to each [GitHub release](https://github.com/brvier/PlaneTxtFlutter/releases). Play Store and F-Droid listings are in progress.
+- **Linux**: build from source, see below. Desktop entries are provided in `planetxt.desktop` and `planetxt-portable.desktop`. Omarchy users can also install the [PlaneTxtQuickShell](https://github.com/brvier/PlaneTxtQuickShell) bar plugin.
 - **iOS, macOS, Windows, web**: the Flutter project builds for these targets, but they are not tested regularly.
 
 ## Build from source
@@ -120,7 +120,7 @@ Next:
 
 ## Contributing
 
-Issues and pull requests are welcome on [GitHub](https://github.com/brvier/PlanovaFlutter). The `AGENTS.md` file describes the project layout and the commands used for analysis and tests. Screenshots for the store listings are regenerated with `tool/screenshots/take_screenshots.sh`.
+Issues and pull requests are welcome on [GitHub](https://github.com/brvier/PlaneTxtFlutter). The `AGENTS.md` file describes the project layout and the commands used for analysis and tests. Screenshots for the store listings are regenerated with `tool/screenshots/take_screenshots.sh`.
 
 ## License
 

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:planova/utils/markdown_parser.dart';
+import 'package:planetxt/utils/markdown_parser.dart';
 
 void main() {
   group('MarkdownParser.parseTasks', () {

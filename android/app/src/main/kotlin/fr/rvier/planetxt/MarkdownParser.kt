@@ -1,4 +1,4 @@
-package fr.rvier.planova
+package fr.rvier.planetxt
 
 import android.util.Log
 import java.text.SimpleDateFormat

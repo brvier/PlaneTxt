@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:planova/screens/widget_debug_screen.dart';
-import 'package:planova/services/notification_service.dart';
-import 'package:planova/services/widget_service.dart';
-import 'package:planova/services/storage_service.dart';
+import 'package:planetxt/screens/widget_debug_screen.dart';
+import 'package:planetxt/services/notification_service.dart';
+import 'package:planetxt/services/widget_service.dart';
+import 'package:planetxt/services/storage_service.dart';
 
 class WidgetHealthTile extends StatelessWidget {
   const WidgetHealthTile({super.key});

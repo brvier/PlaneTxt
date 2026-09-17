@@ -1,15 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:planova/models/daily_file.dart';
-import 'package:planova/providers/daily_file_provider.dart';
-import 'package:planova/providers/theme_provider.dart';
-import 'package:planova/utils/daily_content_helper.dart';
-import 'package:planova/widgets/calendar_day_widget.dart';
-import 'package:planova/widgets/daily_content_view.dart';
-import 'package:planova/widgets/daily_editor_fullscreen.dart';
-import 'package:planova/widgets/quick_add_modal.dart';
-import 'package:planova/widgets/refill_dialog.dart';
+import 'package:planetxt/models/daily_file.dart';
+import 'package:planetxt/providers/daily_file_provider.dart';
+import 'package:planetxt/providers/theme_provider.dart';
+import 'package:planetxt/utils/daily_content_helper.dart';
+import 'package:planetxt/widgets/calendar_day_widget.dart';
+import 'package:planetxt/widgets/daily_content_view.dart';
+import 'package:planetxt/widgets/daily_editor_fullscreen.dart';
+import 'package:planetxt/widgets/quick_add_modal.dart';
+import 'package:planetxt/widgets/refill_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 

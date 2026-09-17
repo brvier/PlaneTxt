@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:planova/providers/directory_provider.dart';
-import 'package:planova/providers/theme_provider.dart';
-import 'package:planova/screens/preferences/debug_section.dart';
-import 'package:planova/screens/preferences/header_patterns_section.dart';
-import 'package:planova/screens/preferences/storage_section.dart';
-import 'package:planova/widgets/theme_selector.dart';
+import 'package:planetxt/providers/directory_provider.dart';
+import 'package:planetxt/providers/theme_provider.dart';
+import 'package:planetxt/screens/preferences/debug_section.dart';
+import 'package:planetxt/screens/preferences/header_patterns_section.dart';
+import 'package:planetxt/screens/preferences/storage_section.dart';
+import 'package:planetxt/widgets/theme_selector.dart';
 import 'package:provider/provider.dart';
 
 class PreferencesScreen extends StatelessWidget {
@@ -199,7 +199,7 @@ class PreferencesScreen extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.description),
-              title: const Text('About Planova'),
+              title: const Text('About PlaneTxt'),
               subtitle: const Text(
                   'A future proof opinionated software to manage your life in plaintext'),
               onTap: () => _showAboutDialog(context),
@@ -334,7 +334,7 @@ class PreferencesScreen extends StatelessWidget {
 
     showAboutDialog(
       context: context,
-      applicationName: 'Planova',
+      applicationName: 'PlaneTxt',
       applicationVersion: versionString,
       applicationIcon: const Icon(Icons.calendar_today, size: 48),
       children: [
@@ -343,7 +343,7 @@ class PreferencesScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         const Text(
-          'By using a more structured yet flexible approach with dailies Markdown files instead of a calendar.txt and todo.txt, Planova provides a more efficient, scalable, and user-friendly experience.',
+          'By using a more structured yet flexible approach with dailies Markdown files instead of a calendar.txt and todo.txt, PlaneTxt provides a more efficient, scalable, and user-friendly experience.',
         ),
       ],
     );

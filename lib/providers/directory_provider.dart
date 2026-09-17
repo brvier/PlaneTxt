@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:planova/providers/theme_provider.dart';
-import 'package:planova/services/storage_service.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/providers/theme_provider.dart';
+import 'package:planetxt/services/storage_service.dart';
+import 'package:planetxt/utils/logger.dart';
 import 'package:provider/provider.dart';
 
 class DirectoryProvider extends ChangeNotifier {

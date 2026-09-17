@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:planova/models/note_file.dart';
-import 'package:planova/repositories/note_repository.dart';
-import 'package:planova/services/storage_service.dart';
-import 'package:planova/services/widget_service.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/models/note_file.dart';
+import 'package:planetxt/repositories/note_repository.dart';
+import 'package:planetxt/services/storage_service.dart';
+import 'package:planetxt/services/widget_service.dart';
+import 'package:planetxt/utils/logger.dart';
 
 class NoteFileProvider extends ChangeNotifier {
   final StorageService _storageService = StorageService();

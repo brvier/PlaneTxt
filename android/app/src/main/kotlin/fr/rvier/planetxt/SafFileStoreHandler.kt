@@ -1,4 +1,4 @@
-package fr.rvier.planova
+package fr.rvier.planetxt
 
 import android.app.Activity
 import android.content.Intent
@@ -17,9 +17,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 /**
- * Storage Access Framework backend for Planova's user-selected storage root.
+ * Storage Access Framework backend for PlaneTxt's user-selected storage root.
  *
- * Exposes a method channel ("fr.rvier.planova/saf") that addresses files by
+ * Exposes a method channel ("fr.rvier.planetxt/saf") that addresses files by
  * paths relative to a persisted document-tree URI, mirroring the Dart
  * FileStore interface. No storage permission is required: access comes from
  * the persistable URI grant the user gives via ACTION_OPEN_DOCUMENT_TREE.
@@ -27,7 +27,7 @@ import java.util.concurrent.Executors
 class SafFileStoreHandler(private val activity: Activity) {
 
     companion object {
-        const val CHANNEL = "fr.rvier.planova/saf"
+        const val CHANNEL = "fr.rvier.planetxt/saf"
         const val PICK_TREE_REQUEST_CODE = 4217
         private const val TAG = "SafFileStore"
         private const val DIR_MIME = DocumentsContract.Document.MIME_TYPE_DIR

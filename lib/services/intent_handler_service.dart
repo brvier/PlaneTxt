@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:planova/models/calendar_event.dart';
-import 'package:planova/providers/daily_file_provider.dart';
-import 'package:planova/providers/theme_provider.dart';
-import 'package:planova/services/ics_parser_service.dart';
-import 'package:planova/utils/daily_content_helper.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/models/calendar_event.dart';
+import 'package:planetxt/providers/daily_file_provider.dart';
+import 'package:planetxt/providers/theme_provider.dart';
+import 'package:planetxt/services/ics_parser_service.dart';
+import 'package:planetxt/utils/daily_content_helper.dart';
+import 'package:planetxt/utils/logger.dart';
 import 'package:provider/provider.dart';
 
 class IntentHandlerService {
-  static const String _channelName = 'fr.rvier.planova/intent';
+  static const String _channelName = 'fr.rvier.planetxt/intent';
   static const MethodChannel _channel = MethodChannel(_channelName);
 
   /// Check if there's shared intent data and handle it

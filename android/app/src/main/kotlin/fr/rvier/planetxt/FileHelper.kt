@@ -1,4 +1,4 @@
-package fr.rvier.planova
+package fr.rvier.planetxt
 
 import android.content.Context
 import android.net.Uri
@@ -11,7 +11,7 @@ import java.io.InputStreamReader
 
 object FileHelper {
     private const val TAG = "FileHelper"
-    private const val SHARED_PREFERENCES_NAME = "group.fr.rvier.planova"
+    private const val SHARED_PREFERENCES_NAME = "group.fr.rvier.planetxt"
     private const val FLUTTER_SHARED_PREFERENCES_NAME = "FlutterSharedPreferences"
     private const val FLUTTER_KEY_PREFIX = "flutter."
     private const val STORAGE_PATH_KEY = "storage_path"

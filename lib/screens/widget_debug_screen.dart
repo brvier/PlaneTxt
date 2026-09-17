@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:planova/services/widget_service.dart';
-import 'package:planova/services/shared_prefs_service.dart';
+import 'package:planetxt/services/widget_service.dart';
+import 'package:planetxt/services/shared_prefs_service.dart';
 
 class WidgetDebugScreen extends StatefulWidget {
   const WidgetDebugScreen({super.key});

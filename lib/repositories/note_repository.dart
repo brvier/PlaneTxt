@@ -1,8 +1,8 @@
 import 'package:path/path.dart' as path;
-import 'package:planova/models/note_file.dart';
-import 'package:planova/repositories/base_repository.dart';
-import 'package:planova/services/storage_service.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/models/note_file.dart';
+import 'package:planetxt/repositories/base_repository.dart';
+import 'package:planetxt/services/storage_service.dart';
+import 'package:planetxt/utils/logger.dart';
 
 class NoteRepository extends BaseRepository<NoteFile> {
   NoteRepository(super.storageService);

@@ -1,5 +1,5 @@
-import 'package:planova/models/calendar_event.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/models/calendar_event.dart';
+import 'package:planetxt/utils/logger.dart';
 
 class IcsParserService {
   /// Parse ICS content and extract calendar events

@@ -1,4 +1,4 @@
-Planova is an opinionated, future-proof app to manage your life in plain text: todo, agenda, journal and notes.
+PlaneTxt is an opinionated, future-proof app to manage your life in plain text: todo, agenda, journal and notes.
 
 Everything is stored as Markdown files in a folder you choose. One daily file per day holds your journal, todos and events; notes live in subfolders. There is no database and no lock-in: sync the folder with Syncthing, Dropbox or anything else, and edit the files with any text editor.
 

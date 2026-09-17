@@ -1,16 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:planova/services/file_store/file_store.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/services/file_store/file_store.dart';
+import 'package:planetxt/utils/logger.dart';
 
 /// [FileStore] over an Android Storage Access Framework document tree.
 ///
-/// Backed by the `fr.rvier.planova/saf` method channel
+/// Backed by the `fr.rvier.planetxt/saf` method channel
 /// (SafFileStoreHandler.kt). The tree URI comes from the system folder
 /// picker and is persisted across restarts - no storage permission needed.
 class SafFileStore extends FileStore {
-  static const MethodChannel _channel = MethodChannel('fr.rvier.planova/saf');
+  static const MethodChannel _channel = MethodChannel('fr.rvier.planetxt/saf');
 
   final String treeUri;
   final String displayName;

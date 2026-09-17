@@ -1,10 +1,10 @@
 import 'package:home_widget/home_widget.dart';
-import 'package:planova/services/shared_prefs_service.dart';
+import 'package:planetxt/services/shared_prefs_service.dart';
 
 import 'package:flutter/material.dart';
 
-import 'package:planova/constants/app_constants.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/constants/app_constants.dart';
+import 'package:planetxt/utils/logger.dart';
 
 /// Provider for managing general app settings
 class SettingsProvider extends ChangeNotifier {

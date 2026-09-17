@@ -1,10 +1,10 @@
-# Planova Agent Development Guide
+# PlaneTxt Agent Development Guide
 
-This file provides comprehensive guidance for agentic coding agents working on the Planova Flutter project.
+This file provides comprehensive guidance for agentic coding agents working on the PlaneTxt Flutter project.
 
 ## Project Overview
 
-Planova is a Flutter-based personal productivity app that manages todos, agenda, journal, and notes using structured Markdown files. The app follows a clean architecture pattern with Provider state management and supports cross-platform deployment (Android, iOS, Web, Desktop).
+PlaneTxt is a Flutter-based personal productivity app that manages todos, agenda, journal, and notes using structured Markdown files. The app follows a clean architecture pattern with Provider state management and supports cross-platform deployment (Android, iOS, Web, Desktop).
 
 ## Development Commands
 
@@ -60,10 +60,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:planova/constants/app_constants.dart';
-import 'package:planova/models/daily_file.dart';
-import 'package:planova/providers/daily_file_provider.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/constants/app_constants.dart';
+import 'package:planetxt/models/daily_file.dart';
+import 'package:planetxt/providers/daily_file_provider.dart';
+import 'package:planetxt/utils/logger.dart';
 ```
 
 ### Naming Conventions
@@ -206,7 +206,7 @@ Follow established testing conventions:
 ```dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:planova/services/widget_service.dart';
+import 'package:planetxt/services/widget_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

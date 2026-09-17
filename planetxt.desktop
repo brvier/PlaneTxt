@@ -1,10 +1,10 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Planova
+Name=PlaneTxt
 Comment=A future proof opinionated software to manage your life in plaintext
-Exec=planova
-Icon=planova
+Exec=planetxt
+Icon=/home/brvier/Projects/PlaneTxt/planetxt.png
 Terminal=false
 Categories=Office;Productivity;
-StartupWMClass=planova
+StartupWMClass=planetxt

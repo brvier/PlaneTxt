@@ -1,4 +1,4 @@
-package fr.rvier.planova
+package fr.rvier.planetxt
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -11,7 +11,7 @@ import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetPlugin
 import es.antonborri.home_widget.HomeWidgetProvider
 
-class PlanovaWidgetProvider : HomeWidgetProvider() {
+class PlaneTxtWidgetProvider : HomeWidgetProvider() {
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -50,7 +50,7 @@ class PlanovaWidgetProvider : HomeWidgetProvider() {
     }
 
     companion object {
-        private const val TAG = "PlanovaWidgetProvider"
+        private const val TAG = "PlaneTxtWidgetProvider"
         internal fun updateAppWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
@@ -58,7 +58,7 @@ class PlanovaWidgetProvider : HomeWidgetProvider() {
             widgetData: SharedPreferences
         ) {
             // Construct the RemoteViews object
-            val views = RemoteViews(context.packageName, R.layout.planova_widget_layout)
+            val views = RemoteViews(context.packageName, R.layout.planetxt_widget_layout)
             
             // Get data from SharedPreferences
             val dailyContent = widgetData.getString("widget_daily_content", "No content")
@@ -104,7 +104,7 @@ class PlanovaWidgetProvider : HomeWidgetProvider() {
             }
             
             // Update widget views
-            views.setTextViewText(R.id.widget_title, if (formattedDate.isEmpty()) "Planova" else "Planova - $formattedDate")
+            views.setTextViewText(R.id.widget_title, if (formattedDate.isEmpty()) "PlaneTxt" else "PlaneTxt - $formattedDate")
             views.setTextViewText(R.id.widget_content, dailyContent)
             views.setTextColor(R.id.widget_title, titleColor)
             views.setTextColor(R.id.widget_content, textColor)
@@ -113,7 +113,7 @@ class PlanovaWidgetProvider : HomeWidgetProvider() {
             views.setInt(R.id.widget_container, "setBackgroundColor", backgroundColor)
             
             // Set click intent to launch the app
-            val intent = Intent(context, Class.forName("fr.rvier.planova.MainActivity"))
+            val intent = Intent(context, Class.forName("fr.rvier.planetxt.MainActivity"))
             intent.action = Intent.ACTION_MAIN
             intent.addCategory(Intent.CATEGORY_LAUNCHER)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK

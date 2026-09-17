@@ -1,4 +1,4 @@
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/utils/logger.dart';
 
 /// Simple caching manager for frequently accessed data
 class CacheManager {

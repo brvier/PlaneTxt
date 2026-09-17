@@ -1,16 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:planova/models/calendar_event.dart';
-import 'package:planova/models/daily_file.dart';
-import 'package:planova/repositories/daily_repository.dart';
-import 'package:planova/services/file_monitor_service.dart';
-import 'package:planova/services/notification_service.dart';
-import 'package:planova/services/storage_service.dart';
-import 'package:planova/services/widget_service.dart';
-import 'package:planova/utils/daily_content_helper.dart';
-import 'package:planova/utils/logger.dart';
-import 'package:planova/utils/markdown_parser.dart';
+import 'package:planetxt/models/calendar_event.dart';
+import 'package:planetxt/models/daily_file.dart';
+import 'package:planetxt/repositories/daily_repository.dart';
+import 'package:planetxt/services/file_monitor_service.dart';
+import 'package:planetxt/services/notification_service.dart';
+import 'package:planetxt/services/storage_service.dart';
+import 'package:planetxt/services/widget_service.dart';
+import 'package:planetxt/utils/daily_content_helper.dart';
+import 'package:planetxt/utils/logger.dart';
+import 'package:planetxt/utils/markdown_parser.dart';
 
 /// Cached parse result for one daily file. The [contentHash] is used to
 /// detect when [content] has changed and invalidate.

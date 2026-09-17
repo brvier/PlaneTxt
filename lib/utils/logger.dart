@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:planova/constants/app_constants.dart';
-import 'package:planova/utils/exceptions.dart';
+import 'package:planetxt/constants/app_constants.dart';
+import 'package:planetxt/utils/exceptions.dart';
 
 /// Log levels for structured logging
 enum LogLevel {
@@ -57,7 +57,7 @@ class Log {
 
   /// Log exception with full details
   static void exception(
-    PlanovaException exception, {
+    PlaneTxtException exception, {
     String? tag,
     StackTrace? stackTrace,
   }) {
@@ -173,7 +173,7 @@ class Logger {
     Log.e(message, tag: tag, error: error, stackTrace: stackTrace);
   }
 
-  void exception(PlanovaException exception, {StackTrace? stackTrace}) {
+  void exception(PlaneTxtException exception, {StackTrace? stackTrace}) {
     Log.exception(exception, tag: tag, stackTrace: stackTrace);
   }
 

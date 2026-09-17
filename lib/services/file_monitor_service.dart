@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:planova/models/daily_file.dart';
-import 'package:planova/services/notification_service.dart';
-import 'package:planova/services/storage_service.dart';
-import 'package:planova/utils/logger.dart';
-import 'package:planova/utils/markdown_parser.dart';
+import 'package:planetxt/models/daily_file.dart';
+import 'package:planetxt/services/notification_service.dart';
+import 'package:planetxt/services/storage_service.dart';
+import 'package:planetxt/utils/logger.dart';
+import 'package:planetxt/utils/markdown_parser.dart';
 
 class FileMonitorService {
   static final FileMonitorService _instance = FileMonitorService._internal();

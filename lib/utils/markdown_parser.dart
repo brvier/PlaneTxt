@@ -1,5 +1,5 @@
-import 'package:planova/models/calendar_event.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/models/calendar_event.dart';
+import 'package:planetxt/utils/logger.dart';
 
 /// Single source of truth for the regular expressions used to recognise
 /// task and event lines in daily markdown. Keeping these as `static final`

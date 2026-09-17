@@ -1,5 +1,5 @@
-import 'package:planova/utils/logger.dart';
-import 'package:planova/utils/markdown_parser.dart';
+import 'package:planetxt/utils/logger.dart';
+import 'package:planetxt/utils/markdown_parser.dart';
 
 /// Bounds of a markdown section: the index of its `## Header` line and the
 /// index just past the section's last line.

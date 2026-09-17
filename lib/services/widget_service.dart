@@ -2,22 +2,22 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
-import 'package:planova/constants/app_constants.dart';
-import 'package:planova/models/daily_file.dart';
-import 'package:planova/models/note_file.dart';
-import 'package:planova/themes/app_themes.dart';
-import 'package:planova/utils/logger.dart';
-import 'package:planova/services/shared_prefs_service.dart';
+import 'package:planetxt/constants/app_constants.dart';
+import 'package:planetxt/models/daily_file.dart';
+import 'package:planetxt/models/note_file.dart';
+import 'package:planetxt/themes/app_themes.dart';
+import 'package:planetxt/utils/logger.dart';
+import 'package:planetxt/services/shared_prefs_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 
 class WidgetService {
-  static const String _widgetName = 'PlanovaWidget';
+  static const String _widgetName = 'PlaneTxtWidget';
   static const String _dailyContentKey = 'widget_daily_content';
   static const String _notesContentKey = 'widget_notes_content';
   static const String _dateKey = 'widget_date';
 
-  static const String _alarmPermissionChannel = 'planova/alarm_permission';
+  static const String _alarmPermissionChannel = 'planetxt/alarm_permission';
 
   static AppTheme _resolveAppTheme(SharedPreferences prefs) {
     final rawIndex =
@@ -85,7 +85,7 @@ class WidgetService {
 
       await HomeWidget.updateWidget(
         name: _widgetName,
-        androidName: 'PlanovaWidgetProvider',
+        androidName: 'PlaneTxtWidgetProvider',
       );
 
       Log.i('📱 WidgetService: Updated widget colors');
@@ -98,7 +98,7 @@ class WidgetService {
   static Future<void> initialize() async {
     try {
       if (Platform.isAndroid || Platform.isIOS) {
-        await HomeWidget.setAppGroupId('group.fr.rvier.planova');
+        await HomeWidget.setAppGroupId('group.fr.rvier.planetxt');
       }
       Log.i('📱 WidgetService: Initialized successfully');
     } catch (e) {
@@ -181,7 +181,7 @@ class WidgetService {
       await HomeWidget.saveWidgetData<String>(_dateKey, dailyFile.date);
       await HomeWidget.updateWidget(
         name: _widgetName,
-        androidName: 'PlanovaWidgetProvider',
+        androidName: 'PlaneTxtWidgetProvider',
       );
 
       Log.i(
@@ -232,7 +232,7 @@ class WidgetService {
       await HomeWidget.saveWidgetData<String>(_notesContentKey, widgetContent);
       await HomeWidget.updateWidget(
         name: _widgetName,
-        androidName: 'PlanovaWidgetProvider',
+        androidName: 'PlaneTxtWidgetProvider',
       );
 
       Log.i(
@@ -383,7 +383,7 @@ class WidgetService {
       // Update widget to refresh with new theme
       await HomeWidget.updateWidget(
         name: _widgetName,
-        androidName: 'PlanovaWidgetProvider',
+        androidName: 'PlaneTxtWidgetProvider',
       );
 
       Log.i(
@@ -411,7 +411,7 @@ class WidgetService {
       // Update widget to refresh with new transparency
       await HomeWidget.updateWidget(
         name: _widgetName,
-        androidName: 'PlanovaWidgetProvider',
+        androidName: 'PlaneTxtWidgetProvider',
       );
 
       Log.i(
@@ -436,7 +436,7 @@ class WidgetService {
       await HomeWidget.saveWidgetData<String>(_dateKey, date);
       await HomeWidget.updateWidget(
         name: _widgetName,
-        androidName: 'PlanovaWidgetProvider',
+        androidName: 'PlaneTxtWidgetProvider',
       );
 
       Log.i('📱 WidgetService: Updated widget with empty day for $date');
@@ -455,7 +455,7 @@ class WidgetService {
 
       await HomeWidget.updateWidget(
         name: _widgetName,
-        androidName: 'PlanovaWidgetProvider',
+        androidName: 'PlaneTxtWidgetProvider',
       );
 
       Log.i('📱 WidgetService: Cleared widget data');
@@ -469,7 +469,7 @@ class WidgetService {
     try {
       await HomeWidget.updateWidget(
         name: _widgetName,
-        androidName: 'PlanovaWidgetProvider',
+        androidName: 'PlaneTxtWidgetProvider',
       );
       Log.i('📱 WidgetService: Widget test successful');
       return true;

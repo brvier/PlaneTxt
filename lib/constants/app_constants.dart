@@ -71,7 +71,7 @@ class AppConstants {
   static const String widgetDateKey = 'widget_date';
 
   // Logging
-  static const String appTag = 'Planova';
+  static const String appTag = 'PlaneTxt';
 }
 
 /// Error messages

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:planova/models/note_file.dart';
-import 'package:planova/providers/note_file_provider.dart';
-import 'package:planova/widgets/note_editor.dart';
-import 'package:planova/widgets/note_list_item.dart';
+import 'package:planetxt/models/note_file.dart';
+import 'package:planetxt/providers/note_file_provider.dart';
+import 'package:planetxt/widgets/note_editor.dart';
+import 'package:planetxt/widgets/note_list_item.dart';
 import 'package:provider/provider.dart';
 
 class NotesView extends StatefulWidget {

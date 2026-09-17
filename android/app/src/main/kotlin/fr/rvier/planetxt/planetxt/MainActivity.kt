@@ -1,4 +1,4 @@
-package fr.rvier.planova
+package fr.rvier.planetxt
 
 import android.app.AlarmManager
 import android.content.Context
@@ -14,8 +14,8 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "fr.rvier.planova/intent"
-    private val ALARM_CHANNEL = "planova/alarm_permission"
+    private val CHANNEL = "fr.rvier.planetxt/intent"
+    private val ALARM_CHANNEL = "planetxt/alarm_permission"
     private var sharedText: String? = null
     private var sharedUri: Uri? = null
     private var safHandler: SafFileStoreHandler? = null
@@ -191,11 +191,11 @@ class MainActivity : FlutterActivity() {
         val icsContent = StringBuilder()
         icsContent.append("BEGIN:VCALENDAR\n")
         icsContent.append("VERSION:2.0\n")
-        icsContent.append("PRODID:-//Planova//Calendar Event//EN\n")
+        icsContent.append("PRODID:-//PlaneTxt//Calendar Event//EN\n")
         icsContent.append("BEGIN:VEVENT\n")
         
         // Add UID
-        icsContent.append("UID:").append(System.currentTimeMillis()).append("@planova\n")
+        icsContent.append("UID:").append(System.currentTimeMillis()).append("@planetxt\n")
         
         // Add start time
         if (startTime > 0) {

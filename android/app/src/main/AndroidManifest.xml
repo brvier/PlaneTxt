@@ -20,7 +20,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
     <application
-        android:label="Planova"
+        android:label="PlaneTxt"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -131,27 +131,27 @@
 
         <!-- Widget Provider Declaration -->
         <receiver
-            android:name="fr.rvier.planova.PlanovaWidgetProvider"
+            android:name="fr.rvier.planetxt.PlaneTxtWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data 
                 android:name="android.appwidget.provider"
-                android:resource="@xml/planova_widget_info" />
+                android:resource="@xml/planetxt_widget_info" />
         </receiver>
 
         <!-- Widget Update Receiver for automatic refreshes -->
         <receiver
-            android:name="fr.rvier.planova.WidgetUpdateReceiver"
+            android:name="fr.rvier.planetxt.WidgetUpdateReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="android.intent.action.DATE_CHANGED" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="fr.rvier.planova.WIDGET_UPDATE" />
-                <action android:name="fr.rvier.planova.MIDNIGHT_REFRESH" />
+                <action android:name="fr.rvier.planetxt.WIDGET_UPDATE" />
+                <action android:name="fr.rvier.planetxt.MIDNIGHT_REFRESH" />
             </intent-filter>
         </receiver>
 

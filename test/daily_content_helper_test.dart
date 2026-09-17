@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:planova/utils/daily_content_helper.dart';
+import 'package:planetxt/utils/daily_content_helper.dart';
 
 const todoHeader = r'^#{1,2}\s+.*Tasks?';
 const eventHeader = r'^#{1,2}\s+.*Events?';

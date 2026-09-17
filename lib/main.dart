@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:planova/providers/directory_provider.dart';
-import 'package:planova/providers/daily_file_provider.dart';
-import 'package:planova/providers/note_file_provider.dart';
-import 'package:planova/providers/theme_provider.dart';
-import 'package:planova/screens/main_screen.dart';
-import 'package:planova/services/shared_prefs_service.dart';
-import 'package:planova/services/widget_service.dart';
+import 'package:planetxt/providers/directory_provider.dart';
+import 'package:planetxt/providers/daily_file_provider.dart';
+import 'package:planetxt/providers/note_file_provider.dart';
+import 'package:planetxt/providers/theme_provider.dart';
+import 'package:planetxt/screens/main_screen.dart';
+import 'package:planetxt/services/shared_prefs_service.dart';
+import 'package:planetxt/services/widget_service.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -21,11 +21,11 @@ void main() async {
   // frame, in MainScreen's background startup tasks — they must not block
   // first paint.
 
-  runApp(const PlanovaApp());
+  runApp(const PlaneTxtApp());
 }
 
-class PlanovaApp extends StatelessWidget {
-  const PlanovaApp({super.key});
+class PlaneTxtApp extends StatelessWidget {
+  const PlaneTxtApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +39,7 @@ class PlanovaApp extends StatelessWidget {
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
           return MaterialApp(
-            title: 'Planova',
+            title: 'PlaneTxt',
             theme: themeProvider.lightTheme,
             darkTheme: themeProvider.darkTheme,
             themeMode: themeProvider.themeMode,

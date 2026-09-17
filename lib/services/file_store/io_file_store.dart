@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:planova/services/file_store/file_store.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/services/file_store/file_store.dart';
+import 'package:planetxt/utils/logger.dart';
 
 /// [FileStore] over a plain filesystem directory (dart:io).
 ///

@@ -1,15 +1,15 @@
 import 'dart:async';
 
 import 'package:home_widget/home_widget.dart';
-import 'package:planova/services/shared_prefs_service.dart';
+import 'package:planetxt/services/shared_prefs_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
 
-import 'package:planova/constants/app_constants.dart';
-import 'package:planova/services/widget_service.dart';
-import 'package:planova/themes/app_themes.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/constants/app_constants.dart';
+import 'package:planetxt/services/widget_service.dart';
+import 'package:planetxt/themes/app_themes.dart';
+import 'package:planetxt/utils/logger.dart';
 
 class ThemeProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;

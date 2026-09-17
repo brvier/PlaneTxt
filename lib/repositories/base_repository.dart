@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:planova/services/storage_service.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/services/storage_service.dart';
+import 'package:planetxt/utils/logger.dart';
 
 /// Base class for file-backed repositories with caching, parallel loading,
 /// incremental updates, and disk-persisted cache.

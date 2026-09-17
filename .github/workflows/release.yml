@@ -50,14 +50,14 @@ jobs:
           cd build/app/outputs/flutter-apk
           for f in app-*-release.apk; do
             abi=${f#app-}; abi=${abi%-release.apk}
-            mv "$f" "planova-${GITHUB_REF_NAME}-${abi}.apk"
+            mv "$f" "planetxt-${GITHUB_REF_NAME}-${abi}.apk"
           done
-          sha256sum planova-*.apk > SHA256SUMS.txt
+          sha256sum planetxt-*.apk > SHA256SUMS.txt
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            build/app/outputs/flutter-apk/planova-*.apk
+            build/app/outputs/flutter-apk/planetxt-*.apk
             build/app/outputs/flutter-apk/SHA256SUMS.txt
           generate_release_notes: true

@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:planova/services/storage_service.dart';
-import 'package:planova/utils/logger.dart';
-import 'package:planova/utils/markdown_parser.dart';
+import 'package:planetxt/services/storage_service.dart';
+import 'package:planetxt/utils/logger.dart';
+import 'package:planetxt/utils/markdown_parser.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -21,7 +21,7 @@ class NotificationService {
   static const String _channelId = 'event_reminders';
   static const String _channelName = 'Event Reminders';
   static const String _channelDesc =
-      'Notifications for upcoming events in Planova';
+      'Notifications for upcoming events in PlaneTxt';
 
   NotificationDetails get _notificationDetails => const NotificationDetails(
         android: AndroidNotificationDetails(
@@ -139,7 +139,7 @@ class NotificationService {
     Log.i('NotificationService: Firing immediate test notification');
     await _notifications.show(
       id: 0,
-      title: 'Planova Test',
+      title: 'PlaneTxt Test',
       body: 'If you see this, notifications work!',
       notificationDetails: _notificationDetails,
       payload: 'test',
@@ -227,7 +227,7 @@ class NotificationService {
       Log.i('NotificationService: Timer fired, showing notification now');
       await _notifications.show(
         id: 99,
-        title: 'Planova Timer Test',
+        title: 'PlaneTxt Timer Test',
         body: 'This bypassed AlarmManager entirely (Dart Timer + show())',
         notificationDetails: _notificationDetails,
         payload: 'test_timer',

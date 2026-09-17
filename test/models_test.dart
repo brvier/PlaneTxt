@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:planova/models/daily_file.dart';
-import 'package:planova/models/calendar_event.dart';
-import 'package:planova/models/note_file.dart';
+import 'package:planetxt/models/daily_file.dart';
+import 'package:planetxt/models/calendar_event.dart';
+import 'package:planetxt/models/note_file.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

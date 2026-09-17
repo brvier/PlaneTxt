@@ -1,12 +1,12 @@
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
-import 'package:planova/services/file_store/file_store.dart';
-import 'package:planova/services/file_store/io_file_store.dart';
-import 'package:planova/services/file_store/saf_file_store.dart';
-import 'package:planova/utils/logger.dart';
+import 'package:planetxt/services/file_store/file_store.dart';
+import 'package:planetxt/services/file_store/io_file_store.dart';
+import 'package:planetxt/services/file_store/saf_file_store.dart';
+import 'package:planetxt/utils/logger.dart';
 
-export 'package:planova/services/file_store/file_store.dart'
+export 'package:planetxt/services/file_store/file_store.dart'
     show FileStore, StoreEntry;
 
 /// Owns the active [FileStore] (the user's storage root) and the app-private
@@ -19,7 +19,7 @@ export 'package:planova/services/file_store/file_store.dart'
 ///  3. default: `<app documents>/Org` (private, no permission).
 ///
 /// All user files are addressed by store-relative paths such as
-/// `dailies/20260713.md` or `notes/projects/planova.md`.
+/// `dailies/20260713.md` or `notes/projects/planetxt.md`.
 class StorageService {
   static final StorageService _instance = StorageService._internal();
   factory StorageService() => _instance;

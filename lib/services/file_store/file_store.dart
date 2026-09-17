@@ -1,6 +1,6 @@
 /// Storage backend abstraction.
 ///
-/// All Planova user files (dailies, notes, archives) live under a single
+/// All PlaneTxt user files (dailies, notes, archives) live under a single
 /// storage root. A [FileStore] addresses them by POSIX-style paths relative
 /// to that root (e.g. `dailies/20260713.md`), never by absolute paths, so
 /// the same repository/provider code works over:

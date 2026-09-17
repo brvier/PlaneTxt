@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:planova/services/ics_parser_service.dart';
+import 'package:planetxt/services/ics_parser_service.dart';
 
 const _calendarHeader = 'BEGIN:VCALENDAR\nVERSION:2.0\n';
 const _calendarFooter = 'END:VCALENDAR\n';
